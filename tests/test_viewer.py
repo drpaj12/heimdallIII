@@ -40,6 +40,7 @@ class TestExprJs(unittest.TestCase):
                 str(ROOT / "tests" / "js" / "expr.test.mjs"),
                 str(ROOT / "tests" / "js" / "stats.test.mjs"),
                 str(ROOT / "tests" / "js" / "select.test.mjs"),
+                str(ROOT / "tests" / "js" / "urlstate.test.mjs"),
             ],
             capture_output=True,
             text=True,
@@ -51,9 +52,7 @@ class TestExprJs(unittest.TestCase):
 @unittest.skipUnless(importlib.util.find_spec("playwright"), "needs playwright and chromium")
 class TestSmoke(unittest.TestCase):
     def test_loads_without_console_errors(self) -> None:
-        spec = importlib.util.spec_from_file_location(
-            "o3viz_shot", ROOT / "tools" / "o3viz_shot.py"
-        )
+        spec = importlib.util.spec_from_file_location("o3viz_shot", ROOT / "tools" / "shot.py")
         assert spec is not None and spec.loader is not None
         o3viz_shot = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(o3viz_shot)
@@ -89,9 +88,7 @@ class TestSmoke(unittest.TestCase):
             self.assertGreater(shot.stat().st_size, 5000)
 
     def test_line_selection_paths_cone_depth(self) -> None:
-        spec = importlib.util.spec_from_file_location(
-            "o3viz_shot", ROOT / "tools" / "o3viz_shot.py"
-        )
+        spec = importlib.util.spec_from_file_location("o3viz_shot", ROOT / "tools" / "shot.py")
         assert spec is not None and spec.loader is not None
         o3viz_shot = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(o3viz_shot)
