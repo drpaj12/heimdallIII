@@ -49,7 +49,7 @@ class Spec:
 
 
 def parse_spec(text: str) -> Spec:
-    """`SUITE:DESIGN=FLOW_DIR[,src=DIR][,what=TEXT][,catalogue=URL]` (a comma ends a value)."""
+    """`SUITE:DESIGN=FLOW_DIR[,src=DIR][,what=TEXT][,catalogue=URL]` (no comma inside values)."""
     head, sep, rest = text.partition("=")
     suite, colon, design = head.partition(":")
     if not (sep and colon and suite and design):
@@ -65,6 +65,8 @@ def parse_spec(text: str) -> Spec:
             what = v
         elif k == "catalogue":
             catalogue = v
+        elif what and "=" not in f:
+            what += "," + f  # a comma inside the description
         else:
             raise SiteError(f"bad spec {text!r}: unknown key {k!r}")
     return Spec(suite, design, Path(fields[0]), tuple(src), what, catalogue)

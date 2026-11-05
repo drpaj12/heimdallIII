@@ -26,8 +26,27 @@ The built site is a plain directory of static files (no server code). Peter uplo
 `https://drpeterjamieson.com/RESEARCH/HEIMDALL/` (`heimdall_base_url`); the Mimir III catalogue links each
 design that has a page there. Nothing is uploaded by the tools.
 
-First site (flows with Odin III main e5efb64e, binary `rel-main3`): the Odin III micros that reach the VTR flow,
-twelve VerilogEval designs, `ch_intrinsics` and `sha`. The list is filled in below when the flows are run.
+First site (29 benchmarks, 21 MB, built with `heimdall site` from `heimdall-runs/site-specs.txt`; flows by Odin III
+main e5efb64e, binary `rel-main3`, VPR k6 architecture, one at a time under a 4 GB scope, `sha` through
+`tools/heavy-run`):
+
+- VerilogEval, size quartiles by Mimir `l6_luts` (rank, median and its neighbours). The picks
+  that failed the VTR flow were replaced by the next by rank. VerilogEval is SystemVerilog and the VTR flow reads
+  Verilog only (`--vtr-compat` is not supported for SystemVerilog), so the `ref` files were fed as `.v` and any
+  using `always_ff`, `logic` or sized casts failed to parse.
+  - Q1: Prob010_mt2015_q4a, Prob011_norgate, Prob012_xnorgate
+  - Q2: Prob009_popcount3, Prob024_hadd, Prob025_reduction
+  - Q3: Prob150_review2015_fsmonehot, Prob016_m2014_q4j, Prob085_shift4 (replacing Prob086_lfsr5, Prob142_lemmings2,
+    Prob096_review2015_fsmseq, Prob128_fsm_ps2, Prob148_2013_q2afsm, Prob120_fsm3s, Prob095_review2015_fsmshift)
+  - Q4: Prob123_bugs_addsubz, Prob043_vector5, Prob141_count_clock (replacing Prob154_fsm_ps2data,
+    Prob066_edgecapture, Prob068_countbcd, Prob082_lfsr32, Prob146_fsm_serialdata, Prob118_history_shift)
+  - Two designs failed `read_slang` in Mimir and have no LUT count, so they are not ranked.
+- Odin III micros that reach `route` (one construct each): bm_DL_2_1_mux, bm_DL_2_4_encoder, bm_DL_4_bit_comparator,
+  bm_DL_4_bit_shift_register, bm_DL_74381_ALU, bm_DL_BCD_adder, bm_DL_D_flipflop, bm_DL_Dff_w_synch_reset,
+  bm_DL_behavioural_full_adder, bm_my_D_latch1, bm_if_reset, bm_DL_16_1_mux, bm_dag1_log, bm_dag2_log, bm_lpm_all.
+  `bm_base_multiply` ran through VTR but the exporter fails on it (KeyError on an `hdl:sig.a/top_a.out` link, a
+  hierarchy case); it is left out until that is fixed.
+- VTR benchmarks `ch_intrinsics` and `sha`.
 
 ## Citations
 
