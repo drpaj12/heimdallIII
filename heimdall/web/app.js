@@ -7,6 +7,7 @@ import * as pl from "./layout.js";
 import { characterize, edgeLength, cellEdges } from "./circuit.js";
 import { barChart, drawMatrix, drawShape, cellAt } from "./circuitdraw.js";
 import { GRAPHS, KEYS as GKEYS, isGraph, khopEdges, nodeEdges, edgeClass, propagate } from "./graphview.js";
+import { parseQuery } from "./urlstate.js";
 import { parseSpan, innermost, hdlCovering, reachDown, cone as coneOf, chainFor, tiers as tiersOf, mixOf, meanMix, mixRGB, mixText, busHue, bitLight } from "./select.js";
 
 const BUNDLE = "./bundle/";
@@ -1708,7 +1709,7 @@ function buildUi() {
   applyPanels();
   document.addEventListener("keydown", (e) => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === "?") { window.open("help.html", "_blank", "noopener"); return; }
+    if (e.key === "?") { window.open($("helplink").href, "_blank", "noopener"); return; }
     const pk = pl.panelForKey(e.key);
     if (pk) { togglePanel(pk); return; }
     if (e.key === "0") focusPlane(null);
@@ -1754,6 +1755,38 @@ function buildUi() {
   });
 }
 
+// Deep links: the URL query (see urlstate.js) sets the state once the bundle is loaded. Bad names are ignored.
+async function applyUrl(u) {
+  if (u.panels) { panels = Object.fromEntries(pl.PANELS.map((k) => [k, u.panels.includes(k)])); applyPanels(); }
+  if (u.rotate === false) { $("rotate").checked = false; controls.autoRotate = false; }
+  for (const g of u.graphs ?? []) if (S.order.includes(g) && S.vis[g] === false) showGraph(g, true);
+  if (u.anchor && S.man.anchors.includes(u.anchor)) { $("anchor").value = u.anchor; await changeAnchor(u.anchor); }
+  if (u.csrc && S.cl?.order.includes(u.csrc)) { $("csrc").value = u.csrc; $("csrc").dispatchEvent(new Event("change")); }
+  if (u.compare && S.cl?.order.includes(u.compare)) { $("ccompare").checked = true; $("csrc2").value = u.compare; await showCircuit(); }
+  if (u.scoap && meta(u.scoap.m)) setColour(scoapColour(u.scoap.m, u.scoap.op));
+  if (u.colour) setColour(u.colour);
+  for (const [k, id, key] of [["size", "size", "size"], ["height", "height", "height"], ["fade", "fade", "fade"]]) {
+    if (u[k] && meta(u[k])) { S[key] = u[k]; $(id).value = u[k]; }
+  }
+  if (u.ff) { S.ff = u.ff; $("ffmode").value = u.ff; }
+  refreshAll();
+  if (u.sel?.kind === "line") {
+    const f = u.sel.file && S.texts[u.sel.file] ? u.sel.file : S.srcFile;
+    if (f !== S.srcFile) showFile(f);
+    $("enclosing").checked = !!u.enclosing;
+    selectLines(f, u.sel.a, u.sel.b);
+    if (rows[u.sel.a]) $("srclines").scrollTop = Math.max(0, rows[u.sel.a].offsetTop - $("srclines").clientHeight / 3);
+  } else if (u.sel?.kind === "obj" && S.byId.has(u.sel.id)) select(u.sel.id);
+  else if (u.sel?.kind === "bus" && S.busIndex.has(u.sel.id)) selectBus(u.sel.id);
+  else if (u.sel?.kind === "path") { const i = S.paths.findIndex((x) => x.n === u.sel.n); if (i >= 0) showPath(i); }
+  if (u.cell && S.cl) await selectCell(S.csrc, u.cell.which, u.cell.i, u.cell.j);
+  if (u.cone) { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = u.cone.dir; $("conedepth").value = String(u.cone.depth); await updateCone(); markLines(); }
+  if (u.view && (u.view === "stack" || S.order.includes(u.view))) setView(u.view);
+  if (u.solo && S.order.includes(u.solo)) soloPlane(u.solo);
+  if (u.plane && S.order.includes(u.plane)) focusPlane(u.plane);
+  if (u.zoom) { const off = camera.position.clone().sub(controls.target).divideScalar(u.zoom); camera.position.copy(controls.target).add(off); controls.update(); }
+}
+
 async function main() {
   await loadBundle();
   buildScene();
@@ -1765,6 +1798,7 @@ async function main() {
   refreshAll();
   const loop = () => { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); };
   loop();
+  try { await applyUrl(parseQuery(location.search)); } catch (e) { console.error("deep link:", e); }
   document.body.dataset.ready = "1";
   window.__o3viz = { S, selectEdge, showGraph, scoapColour, drawGraphs, khopEdges, changeAnchor, selectCell, showCircuit, characterize, setCluster: (k) => { $("csrc").value = k; $("csrc").dispatchEvent(new Event("change")); }, setCompare: (on, k) => { $("ccompare").checked = on; if (k) $("csrc2").value = k; showCircuit(); }, togglePanel, panelState: () => ({ ...panels }), select, selectBus, tierCounts, setFF: (m) => { S.ff = m; $("ffmode").value = m; refreshAll(); }, selectLines, planeCounts, coverage, focusPlane, soloPlane, showPath, updateCone, markLines, setCone: async (dir, depth) => { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = dir; $("conedepth").value = String(depth); await updateCone(); markLines(); }, marksOf: () => Object.fromEntries([...marks].map(([f, m]) => [f, Object.fromEntries(m)])), cam: () => ({ target: controls.target.toArray(), pos: camera.position.toArray() }), wheelAt: (x, y, dy) => wheelZoom({ preventDefault() {}, clientX: x, clientY: y, deltaY: dy, deltaMode: 0 }), discover, setView, setGroupMode, discoverMatrix, brushAll: (p) => { S.brush = new Set(S.planes[p].ids.slice(0, 30)); S.core = new Set(); refreshAll(); },
     setEdges: async (m, h) => { S.edgeMode = m; S.hops = h ?? 1; await ensureEdges(); drawEdges(); }, setMorph: (a, b, m) => { S.morph = { a, b, m }; refreshAll(); }, addExpr, addAgg, setHeight: (n) => { S.height = n; $("height").value = n; refreshAll(); },

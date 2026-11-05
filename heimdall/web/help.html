@@ -25,8 +25,8 @@
 <body>
 <main>
 <h1>Heimdall III help</h1>
-<p class="dim">What you are looking at in the 3D provenance viewer, and what each control does. This page is a single static file;
-its pictures are in <code>images/</code> next to it. Press <kbd>?</kbd> in the viewer to open it.</p>
+<p class="dim">What you are looking at in the 3D provenance viewer, and what each control does. Press <kbd>?</kbd> in the viewer to open it.
+For worked examples with screenshots, see <a href="guide.html"><b>How to use Heimdall</b></a>.</p>
 
 <nav id="toc"><b>Contents</b>
 <ol>
@@ -43,6 +43,7 @@ its pictures are in <code>images/</code> next to it. Press <kbd>?</kbd> in the v
   <li><a href="#panels">Collapsible panels</a></li>
   <li><a href="#keys">Keyboard shortcuts</a></li>
   <li><a href="#limits">Known limits per plane</a></li>
+  <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
 
 <h2 id="planes">1. What you are looking at: the planes</h2>
@@ -185,7 +186,7 @@ which says how close the HDL hierarchy is to the connectivity hierarchy.</li>
 </ul>
 <figure><img src="images/o3viz-m6-hutton.png" alt="Hutton layout"><figcaption>The <code>hutton</code> anchor, colour = role.</figcaption></figure>
 <figure><img src="images/o3viz-m6-kundarewich.png" alt="Kundarewich view"><figcaption>HDL blocks as clusters, Comb and Latched matrices, compared with min-cut.</figcaption></figure>
-<div class="try"><b>Try this.</b> Choose cluster source <code>hdl-block</code>; the anchor switches to Kundarewich. Click a hot cell in the Comb matrix and read
+<div class="try"><b>Try this.</b> Choose the anchor <code>kundarewich-hdl-block</code> (cluster source <code>hdl-block</code>); with a Kundarewich anchor active, changing the cluster source also switches the anchor. Click a hot cell in the Comb matrix and read
 the HDL lines of the edges between those two clusters. Then tick "compare with" and choose <code>mincut</code>.</div>
 
 <h2 id="paths">8. Paths and SCOAP</h2>
@@ -279,6 +280,35 @@ centre and counted as "unanchored" in the manifest.</li>
 <li><b>Buses</b>: if the net-number offset cannot be verified, the lut and placed planes get no bus names and the manifest says so.</li>
 <li>A value that was not measured is grey, never a default.</li>
 </ul>
+<h2 id="links-url">14. Deep links: URL parameters</h2>
+<p>The viewer reads its URL query once the bundle has loaded and sets its state from it, so a link can open an exact view. The
+<a href="guide.html">guide</a> uses them for its "try it" links. Names that the bundle does not have are ignored, and so is any
+malformed value. Example:</p>
+<p><code>vtr-verilog-sha/?sel=line:12&amp;plane=lut&amp;colour=logic_level&amp;anchor=hutton</code></p>
+<table>
+<tr><th>Parameter</th><th>Value</th><th>Effect</th></tr>
+<tr><td><code>sel</code></td><td><code>line:12</code>, <code>line:12-15</code>, <code>line:FILE:12-15</code></td><td>select HDL lines (the first file when none is named); the pane scrolls to them</td></tr>
+<tr><td></td><td><code>obj:ID</code></td><td>select one object by its id (as shown in the right panel)</td></tr>
+<tr><td></td><td><code>bus:NAME</code></td><td>select a bus on every plane</td></tr>
+<tr><td></td><td><code>path:N</code></td><td>draw VPR setup path number N of the report (1 is the worst)</td></tr>
+<tr><td><code>enclosing</code></td><td><code>1</code></td><td>tick "include enclosing constructs" for a line selection</td></tr>
+<tr><td><code>plane</code></td><td>plane name</td><td>focus that plane (as the keys 1 to 9)</td></tr>
+<tr><td><code>solo</code></td><td>plane name</td><td>show only that plane</td></tr>
+<tr><td><code>view</code></td><td><code>stack</code> or a plane name</td><td>the 3D stack, or the 2D view of that plane</td></tr>
+<tr><td><code>graphs</code></td><td><code>stg,cfg,ddg</code> (any of them)</td><td>switch those graph planes on</td></tr>
+<tr><td><code>zoom</code></td><td>number up to 20</td><td>move the camera that many times closer to its target (after focus)</td></tr>
+<tr><td><code>colour</code>, <code>size</code>, <code>height</code>, <code>fade</code></td><td>metric name (colour also <code>@bus</code>, <code>@cluster</code>, <code>@role</code>)</td><td>set the channel</td></tr>
+<tr><td><code>scoap</code></td><td><code>cc0</code>, <code>cc1</code> or <code>co</code>, optionally <code>:min</code>, <code>:max</code>, <code>:mean</code></td><td>"colour = SCOAP with joins" (default max)</td></tr>
+<tr><td><code>ff</code></td><td><code>off</code>, <code>highlight</code>, <code>only</code></td><td>the Flip-flops menu</td></tr>
+<tr><td><code>anchor</code></td><td>anchor name</td><td>the Anchor menu (<code>hutton</code>, <code>kundarewich-hdl-block</code>, ...)</td></tr>
+<tr><td><code>csrc</code>, <code>compare</code></td><td>cluster source name</td><td>the Hutton and Kundarewich cluster source, and the "compare with" source</td></tr>
+<tr><td><code>cell</code></td><td><code>comb:I:J</code> or <code>latched:I:J</code></td><td>click that cell of the Comb or Latched matrix of the cluster source</td></tr>
+<tr><td><code>cone</code></td><td><code>in</code>, <code>out</code> or <code>both</code>, optionally <code>:DEPTH</code></td><td>netlist cone of the selection (depth 6 by default)</td></tr>
+<tr><td><code>panels</code></td><td><code>left,hdl,right</code> (any of them)</td><td>collapse those panels (not saved in the browser)</td></tr>
+<tr><td><code>rotate</code></td><td><code>0</code></td><td>no auto-rotation</td></tr>
+</table>
+<p>Selection and view parameters are applied in a fixed order: panels, graphs, anchor, cluster sources, colour channels, selection, cone, view,
+solo, focus, zoom. The case tiers need no parameter: a line selection inside a <code>case</code> item shows them.</p>
 </main>
 </body>
 </html>

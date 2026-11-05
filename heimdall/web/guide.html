@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How to use Heimdall III</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; --bg:#14171c; --panel:#1d2229; --line:#323a45; --fg:#d8dee6; --dim:#8b96a3; --acc:#ffb454; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 62rem; margin: 0 auto; padding: 1.5rem 1.2rem 4rem; }
+  h1 { font-size: 1.7rem; margin: 0 0 .2rem; } h2 { font-size: 1.25rem; margin: 0 0 .3rem; }
+  a { color: #8fc1ff; } code, kbd { background:#10131a; border:1px solid var(--line); border-radius:3px; padding:0 .3em; font: .88em ui-monospace, Consolas, monospace; }
+  kbd { border-bottom-width: 2px; }
+  nav { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: .5rem 1rem; }
+  nav ol { margin: .2rem 0; padding-left: 1.4rem; columns: 2; }
+  section.ex { border-top: 2px solid var(--line); margin-top: 2.4rem; padding-top: .8rem; }
+  .bench { color: var(--dim); margin: .1rem 0 .6rem; } .q { background: var(--panel); border-left: 3px solid #8fc1ff; padding: .4rem .8rem; }
+  .idea { background: #8fc1ff14; border-left: 3px solid #8fc1ff; padding: .4rem .8rem; }
+  figure { margin: 1rem 0; } figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 4px; display: block; }
+  figcaption { color: var(--dim); font-size: .9em; margin-top: .25rem; }
+  .try { background: #ffb4541a; border-left: 3px solid var(--acc); padding: .4rem .8rem; margin: .8rem 0; } .try b { color: var(--acc); }
+  .dim, .dimlink { color: var(--dim); } .tryit { font-weight: 600; }
+  li { margin: .25rem 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>How to use Heimdall III</h1>
+<p class="dim">Worked examples, one per feature, on the benchmarks hosted here. Each has the question it answers, the steps, screenshots
+with what to notice, and a link that opens the viewer in that exact state (the link sets the state through URL parameters, listed in
+<a href="help.html#links-url">the help page</a>). For every control and key, see <a href="help.html">Help</a>; for the benchmarks, the
+<a href="index.html">index</a>.</p>
+<nav id="toc"><b>Examples</b>
+<ol>
+  <li><a href="#lines">Select HDL lines</a></li>
+  <li><a href="#tiers">Case tiers A, B, C; FSM recoding</a></li>
+  <li><a href="#ff">Flip-flops and buses</a></li>
+  <li><a href="#depth">Logic depth and SCOAP</a></li>
+  <li><a href="#paths">Paths and cones</a></li>
+  <li><a href="#graphs">STG, CFG and DDG</a></li>
+  <li><a href="#hutton">The Hutton view</a></li>
+  <li><a href="#kundarewich">The Kundarewich view</a></li>
+  <li><a href="#planes">Focus, solo, zoom to cursor</a></li>
+  <li><a href="#view2d">2D view, collapsible panels</a></li>
+</ol></nav>
+<p>The viewer needs a browser with WebGL. Drag to rotate, right-drag to pan, wheel to zoom, click to select. Click empty space to clear the selection.
+Every picture below is a real screenshot of the viewer on the benchmark named above it, taken with the link beside it.</p>
+<section class="ex" id="lines">
+<h2>1. Select HDL lines and see what they become on every plane</h2>
+<p class="bench">Design: <code>bm_DL_74381_ALU</code> (a 4-bit ALU, a micro from Odin III)</p>
+<p class="q"><b>Question.</b> Where did this line of my Verilog end up: which cells, LUTs, clusters and placed atoms come from it?</p>
+<ol>
+<li>Open the viewer. The HDL pane is at the left, the stack of planes in the middle.</li>
+<li>Click line 13, <code>3'b011: F = A + B;</code>. The line turns blue; the part of the source that belongs to the same <code>case</code> gets a tint.</li>
+<li>Look at the stack. The objects linked to the line are lit on every plane; the rest is dimmed.</li>
+<li>Read the right panel, <i>Linked objects per plane</i>: one count per plane, each with a <b>focus</b> button.</li>
+<li>Tick <i>include enclosing constructs</i> (or click line 9, the <code>case</code> header, with the box ticked) to take the whole <code>always</code> block and the case, not just the innermost construct.</li>
+</ol>
+<figure><img src="images/guide/lines-1.png" alt="lines-1" loading="lazy"><figcaption>Line 13 selected. The right panel counts the column: 1 construct, 1 cell, 16 LUT-plane objects, 2 clusters and 9 placed atoms. The lit objects form a small group on every plane. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;sel=line:13&amp;panels=left">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/lines-3.png" alt="lines-3" loading="lazy"><figcaption>Line 9 (<code>case (s)</code>) with <i>include enclosing constructs</i> ticked: the whole case lights the 15 cells, 54 LUT-plane objects, 13 clusters and 37 placed atoms, which is the logic of the whole design. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;sel=line:9&amp;enclosing=1&amp;panels=left">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> A line that owns many LUTs is a candidate for a closer look. A line that owns none was removed or merged by synthesis. Compare the count of a short line with the count of its whole block to see how much logic one statement carries.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;sel=line:13&amp;panels=left">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="tiers">
+<h2>2. Case tiers A, B, C, and the effect of FSM recoding</h2>
+<p class="bench">Design: <code>bm_DL_74381_ALU</code> (a <code>case</code> with eight items) and <code>ch_intrinsics</code> (a state machine with sixteen states)</p>
+<p class="q"><b>Question.</b> Which logic belongs only to one case item (A), which is shared by the case (B), and which serves the other items (C)? And what happens to that split after synthesis recodes the state?</p>
+<ol>
+<li>Open the ALU and click line 12, <code>3'b010: F = A - B;</code>, an item of the <code>case</code>.</li>
+<li>The source pane shows the item in blue, the case header (line 9) in teal and the other items in a light tint.</li>
+<li>Focus the <code>cell</code> plane (key <kbd>2</kbd> or its <b>focus</b> button in the right panel). Orange cells are tier A (own), teal are tier B (shared select and mux logic), violet are tier C (context).</li>
+<li>Focus the <code>lut</code> plane (key <kbd>3</kbd>). A LUT is coloured by the <b>graded mix</b>: the share of A, B and C among the cells it came from, so most LUTs blend several colours.</li>
+<li>Now open <code>ch_intrinsics</code> and click line 165 (<code>var0 &lt;= ...</code>, inside the item <code>4'b0001</code> of <code>case(cur_state)</code>). Compare the cell plane with the lut plane.</li>
+<li>Read the table <i>Case tiers per plane</i>.</li>
+</ol>
+<figure><img src="images/guide/tiers-1.png" alt="tiers-1" loading="lazy"><figcaption>ALU, cell plane. Orange: the item <code>F = A - B</code> (2 cells). Teal: shared. Violet: the other seven items. The table counts A, B and C per plane. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;sel=line:12&amp;plane=cell&amp;panels=left&amp;zoom=0.8">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/tiers-3.png" alt="tiers-3" loading="lazy"><figcaption><code>ch_intrinsics</code>, cell plane. The tiers are exact here: 2 own cells (orange), 15 shared (teal), 36 context (violet). <span class="dimlink">(<a class="tryit" href="@vtr-verilog-ch_intrinsics/?rotate=0&amp;sel=line:165&amp;plane=cell&amp;panels=left&amp;zoom=0.8">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/tiers-4.png" alt="tiers-4" loading="lazy"><figcaption><code>ch_intrinsics</code>, lut plane. The table says lut: A 0, B 209, C 0. Every LUT of the case is tier B; the item has lost its own LUTs. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-ch_intrinsics/?rotate=0&amp;sel=line:165&amp;plane=lut&amp;panels=left&amp;zoom=0.8">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> Odin III's FSM pass recodes the state variable (here <code>cur_state</code> becomes one-hot) and merges the case items after mapping. The cell plane still shows the items, but on lut, clb and placed each LUT carries the HDL spans of all the items, so any item looks shared. When the own (A) share is large on the cell plane and zero on the lut plane, the recoding or the logic merge did it, and a per-item study of the mapped netlist needs care.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;sel=line:12&amp;plane=cell&amp;panels=left&amp;zoom=0.8">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="ff">
+<h2>3. Flip-flops and buses</h2>
+<p class="bench">Design: <code>bm_DL_4_bit_shift_register</code> (four <code>muxdff</code> stages) and <code>Prob141_count_clock</code> (a BCD clock with buses <code>hh</code>, <code>mm</code>, <code>ss</code>)</p>
+<p class="q"><b>Question.</b> Which objects are the registers, where is each one on every plane, and which objects belong to one bus?</p>
+<ol>
+<li>Open the shift register. In the left panel, set <i>Flip-flops</i> to <b>highlight FFs</b>. The pink cubes are the flip-flops.</li>
+<li>Click line 19, <code>reg Q;</code>, the declaration of the register. The viewer selects the flip-flops of that register on every plane.</li>
+<li>Set <i>Flip-flops</i> to <b>FFs only (others dimmed)</b> to see only the registers, and where they sit.</li>
+<li>Open the clock design and set <i>Colour</i> to <b>bus (hue per bus, shade per bit)</b>. The legend lists each bus, its width and its object count.</li>
+<li>Click a bus in the legend, for example <code>ss</code>. Its objects are selected on every plane and its declaration line (line 9) is marked.</li>
+</ol>
+<figure><img src="images/guide/ff-1.png" alt="ff-1" loading="lazy"><figcaption>Shift register, lut plane, FFs highlighted: pink cubes beside the LUTs that drive their D inputs. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_4_bit_shift_register/?rotate=0&amp;ff=highlight&amp;plane=lut&amp;panels=hdl&amp;zoom=0.8">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/ff-2.png" alt="ff-2" loading="lazy"><figcaption>Line 19 (<code>reg Q;</code>) selected, FFs only: the registers of <code>Q</code> stand out on the lut plane. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_4_bit_shift_register/?rotate=0&amp;sel=line:19&amp;ff=only&amp;plane=lut&amp;zoom=0.8&amp;panels=left">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/ff-3.png" alt="ff-3" loading="lazy"><figcaption>Clock design, colour = bus, <code>ss</code> selected: 14 objects, mostly cells. The grey note in the legend says on which planes no bus name was found; on the lut plane the net names carry none here, and the viewer shows grey rather than guess. <span class="dimlink">(<a class="tryit" href="@verilogeval-Prob141_count_clock/?rotate=0&amp;colour=@bus&amp;sel=bus:ss&amp;panels=hdl">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> A register that fans out to many LUTs, or a bus whose bits sit far apart on the placed plane, is a place to look for timing or routing trouble. Check how many of the register's objects reach the lut plane before you trust a bus colour there.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@odin3-micro-bm_DL_4_bit_shift_register/?rotate=0&amp;sel=line:19&amp;ff=only&amp;plane=lut&amp;zoom=0.8&amp;panels=left">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="depth">
+<h2>4. Colour by logic depth, and by SCOAP CC0, CC1 and CO</h2>
+<p class="bench">Design: <code>bm_lpm_all</code> (adders, subtractors, comparators and shifters) for both views</p>
+<p class="q"><b>Question.</b> Which logic is deep (slow) and which logic is hard to test?</p>
+<ol>
+<li>Open the design. In the left panel press <b>colour = logic depth (all planes)</b>. The metric is <code>logic_level</code>: the number of LUTs on the longest path from an input or a register output to this object.</li>
+<li>Read the legend: yellow is the deepest, purple the shallowest. Grey means no measured value. The line under the legend says how many objects of each plane have a value.</li>
+<li>Now use <i>colour = SCOAP with joins</i> in the left panel. Choose <b>CO</b> and <b>max</b>, then press the button. Every plane is coloured: an object's own value where Odin III's <code>scoap</code> pass measured it, else the max over the linked objects that have one.</li>
+<li>Repeat with <b>CC0</b> (and <b>CC1</b>) to see how hard it is to force the object to 0 (or 1).</li>
+</ol>
+<figure><img src="images/guide/depth-1.png" alt="depth-1" loading="lazy"><figcaption>Colour = logic depth. The legend runs from 0 to 4 levels. Yellow blocks on the lut and placed planes are the deepest logic, reached after four LUTs in a row; grey ones have no value. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_lpm_all/?rotate=0&amp;colour=logic_level&amp;panels=hdl">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/scoap-1.png" alt="scoap-1" loading="lazy"><figcaption>Colour = max CO on every plane (legend 0 to 95). A high observability number (yellow) means a change at that object is hard to see at an output. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_lpm_all/?rotate=0&amp;scoap=co:max&amp;panels=hdl">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/scoap-2.png" alt="scoap-2" loading="lazy"><figcaption>Colour = max CC0 (legend 1 to 6). A high controllability number means many input assignments are needed to force the object to 0. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_lpm_all/?rotate=0&amp;scoap=cc0:max&amp;panels=hdl">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> Deep logic is where the timing is lost; high CC0, CC1 or CO is where a test would struggle, or where a hidden change would be hard to catch. Look for an object that is both deep and hard to observe, and click it to read the HDL line behind it. SCOAP is a static estimate. It is a structural number, not a measurement of silicon.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@odin3-micro-bm_lpm_all/?rotate=0&amp;colour=logic_level&amp;panels=hdl">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="paths">
+<h2>5. Paths: the worst VPR path, and the logic into and out of a selection</h2>
+<p class="bench">Design: <code>sha</code> (the VTR SHA-1 benchmark)</p>
+<p class="q"><b>Question.</b> Where is the slowest path, which HDL lines does it come from, and what logic feeds a register or reads from it?</p>
+<ol>
+<li>Open <code>sha</code>. In the right panel, the <i>Paths</i> list shows VPR's reported setup paths, worst slack first. Click <b>#1</b> (slack -10.135 ns).</li>
+<li>The path is drawn through the lut and placed planes, and its HDL lines are highlighted in the source pane. The source of the data is named in the panel.</li>
+<li>Colour by <code>slack_worst</code> (Colour menu). Red is negative slack (all of the 100 reported paths of <code>sha</code> are negative). Only objects on those paths have a value; the rest stay grey.</li>
+<li>For a cone, click an object (or pass its id in the link), set <i>Paths</i> to <b>netlist cone of the selection</b>, choose <b>fan-in</b>, <b>fan-out</b> or both, and set a depth limit. The cone stops at flip-flops, I/O and hard blocks.</li>
+<li>Fan-in shows the logic that feeds the object. Fan-out shows what it drives.</li>
+</ol>
+<figure><img src="images/guide/path-1.png" alt="path-1" loading="lazy"><figcaption>Worst path of <code>sha</code> on the placed plane: 33 LUT-plane objects, 33 placed objects, from <code>hzz5ukgiptx.Q[0]</code> to <code>h3truwh632k.D[0]</code>. The orange lines in the source pane are the lines it comes from. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;sel=path:1&amp;plane=placed&amp;panels=left">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/cone-1.png" alt="cone-1" loading="lazy"><figcaption>Fan-in cone of one register, depth 6: 23 objects and 41 edges, drawn in cyan. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;sel=obj:luts:sha1/hm6fp24itnu&amp;cone=in:6&amp;plane=lut&amp;panels=left">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/cone-2.png" alt="cone-2" loading="lazy"><figcaption>Fan-out cone of an early LUT of the path, depth 4: 230 objects and 261 edges, drawn in pink. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;sel=obj:luts:sha1/hr5mitk2qg7&amp;cone=out:4&amp;plane=lut&amp;panels=left">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> A path crossing many clusters on the placed plane suggests that placement, not logic depth, costs the time. Compare the fan-in cone of the path's end with its fan-out cone: a narrow cone into a wide one shows a register that many things wait for.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;sel=path:1&amp;plane=placed&amp;panels=left">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="graphs">
+<h2>6. The graph planes: STG, CFG and DDG</h2>
+<p class="bench">Design: <code>ch_intrinsics</code> (STG, CFG) and <code>Prob141_count_clock</code> (DDG)</p>
+<p class="q"><b>Question.</b> What does the design look like before it becomes gates: its states, its control flow, its data flow?</p>
+<ol>
+<li>Press <kbd>s</kbd> to show the STG plane. It joins the stack above the HDL plane and takes focus. Press <kbd>s</kbd> again to hide it.</li>
+<li>Each node is a state of the state machine, labelled with its code; each edge is a transition, labelled with its condition.</li>
+<li>Press <kbd>c</kbd> for the CFG plane: per process, the entry, switch, case, join and exit nodes.</li>
+<li>Press <kbd>d</kbd> for the DDG plane (data dependences). Click an HDL line, and the DDG edges within <i>k</i> hops of the selection are drawn (tick <i>DDG: all edges</i> for all of them, which is slow on a big design).</li>
+<li>Click a graph node: its HDL lines and its linked objects on the other planes light up.</li>
+</ol>
+<figure><img src="images/guide/graph-1.png" alt="graph-1" loading="lazy"><figcaption>STG of <code>ch_intrinsics</code>: 15 states (state codes), transitions labelled with their conditions such as <code>!reset</code> and <code>!reset &amp; !var2</code>. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-ch_intrinsics/?rotate=0&amp;graphs=stg&amp;plane=stg&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/graph-2.png" alt="graph-2" loading="lazy"><figcaption>CFG of <code>ch_intrinsics</code>: <code>switch</code> nodes fan out to <code>case</code> nodes that rejoin at <code>join</code> nodes, ending at <code>exit</code>. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-ch_intrinsics/?rotate=0&amp;graphs=cfg&amp;plane=cfg&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/graph-3.png" alt="graph-3" loading="lazy"><figcaption>DDG of <code>Prob141_count_clock</code> with line 25 selected (the update of <code>ss[3:0]</code>): the edges within one hop of the selection are drawn. <span class="dimlink">(<a class="tryit" href="@verilogeval-Prob141_count_clock/?rotate=0&amp;graphs=ddg&amp;plane=ddg&amp;sel=line:25&amp;panels=left">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> The STG tells you how many states Odin III saw and how they connect, before any recoding. A state with many edges is a hub (here state <code>0000</code>, the reset state). Compare the STG with the lut plane to see which part of the netlist implements a state.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@vtr-verilog-ch_intrinsics/?rotate=0&amp;graphs=stg&amp;plane=stg&amp;panels=left,hdl">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="hutton">
+<h2>7. The Hutton view: the shape of the circuit</h2>
+<p class="bench">Design: <code>sha</code></p>
+<p class="q"><b>Question.</b> What shape does the circuit have: how many nodes at each delay level, how long are its edges?</p>
+<ol>
+<li>Open <code>sha</code> and set <i>Anchor</i> to <b>hutton</b>. The x axis becomes the delay level; flip-flops sit at level 0 beside the primary inputs.</li>
+<li>Set <i>Colour</i> to <b>role</b> (flip-flop, latched node, primary output). The legend explains the colours.</li>
+<li>Scroll the right panel to <i>Circuit: Hutton and Kundarewich</i>. Read the shape histograms: node shape (objects per delay level), input shape, output shape, PO shape, edge length and fanout.</li>
+<li>Choose <i>shapes: selection</i> to give an HDL line's logic its own shape, and compare it with the whole circuit.</li>
+<li>Set <i>Edges</i> to <b>circuit edges by length</b> to colour the lut-plane edges by length (pink is length 0, an edge into a flip-flop).</li>
+</ol>
+<figure><img src="images/guide/hutton-1.png" alt="hutton-1" loading="lazy"><figcaption><code>sha</code> in the <code>hutton</code> anchor, colour = role. Pink: flip-flops at level 0. Orange: latched nodes (they drive a D input). Blue: other nodes. The columns L0 to L3 are the delay levels. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;anchor=hutton&amp;colour=@role&amp;plane=lut&amp;panels=hdl&amp;zoom=0.8">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/hutton-2.png" alt="hutton-2" loading="lazy"><figcaption>The shape histograms of the whole circuit: 2220 objects, 37 primary inputs, delay levels 0 to 3. The node shape is tall at level 0 and at level 3 and thin between: many registers, many nodes at the deepest level. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;anchor=hutton&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> The shapes follow Hutton, Rose, Grossman and Corneil's characterisation of circuits: a circuit is described by its node, input, output and PO shapes and its fanout and edge-length distributions. They describe; they test no hypothesis. Compare a small micro with <code>sha</code> to see how different the shapes are.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;anchor=hutton&amp;colour=@role&amp;plane=lut&amp;panels=hdl&amp;zoom=0.8">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="kundarewich">
+<h2>8. The Kundarewich view: Comb and Latched matrices</h2>
+<p class="bench">Design: <code>sha</code></p>
+<p class="q"><b>Question.</b> Does the HDL hierarchy match the connectivity of the circuit?</p>
+<ol>
+<li>Open <code>sha</code> and set <i>Anchor</i> to <b>kundarewich-hdl-block</b>: one strip per cluster. The <i>Cluster source</i> in the right panel is <b>HDL block</b>.</li>
+<li>In the right panel read the line under the source: the number of clusters, the edges and the share between clusters.</li>
+<li>Read the matrices. Comb[i][j] counts edges from cluster <i>i</i> that drive combinational nodes in cluster <i>j</i>; Latched[i][j] those that drive flip-flops. The diagonal is dim.</li>
+<li>Click a bright cell of the Comb matrix. Its edges are drawn in yellow, and their endpoints and HDL lines are selected.</li>
+<li>Tick <i>compare with</i> and choose <b>mincut</b>: both partitions side by side, with their normalised mutual information.</li>
+</ol>
+<figure><img src="images/guide/kund-1.png" alt="kund-1" loading="lazy"><figcaption>HDL block clusters (15 clusters, 7743 edges, 46.0% of them between clusters). The Comb matrix has one bright column: the cell Comb[11, 7] is selected, 1107 edges from the big block c2 (lines 148 to 2104) into the block c18 (line 128, 1739 objects); the edges are yellow in 3D. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;csrc=hdl-block&amp;anchor=kundarewich-hdl-block&amp;cell=comb:11:7&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/kund-2.png" alt="kund-2" loading="lazy"><figcaption>Compare with min-cut: 53.0% of its edges cross clusters, its Comb matrix is dense, and the normalised mutual information of the two partitions is 0.253 (0 unrelated, 1 the same). <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;csrc=hdl-block&amp;anchor=kundarewich-hdl-block&amp;compare=mincut&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> A low mutual information says the HDL hierarchy is a poor guide to the connectivity: the min-cut groups logic the author kept apart. A one-column Comb matrix says one cluster takes most of the edges; on <code>sha</code> that cluster is a one-line block holding 1739 objects, and the help page's known limits explain that on a big design the LUTs share one lineage record, so this is probably an artefact of coarse lineage, not a real hot spot. The matrices describe; they test no hypothesis.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;csrc=hdl-block&amp;anchor=kundarewich-hdl-block&amp;cell=comb:11:7&amp;panels=left,hdl">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="planes">
+<h2>9. Plane focus, solo and zoom to cursor</h2>
+<p class="bench">Design: <code>bm_DL_74381_ALU</code></p>
+<p class="q"><b>Question.</b> How do I get close to one plane and hide the others?</p>
+<ol>
+<li><b>Focus.</b> Press <kbd>3</kbd>, or the <b>focus</b> button of a plane in the right panel or the Planes list in the left panel. The orbit target moves to that plane; <kbd>0</kbd> shows the whole stack again.</li>
+<li><b>Solo.</b> Press <b>solo</b> next to a plane in the Planes list to hide every other plane; press it again to bring them back.</li>
+<li><b>Zoom to cursor.</b> With a plane focused, scroll the wheel over the part of the plane you want: the camera moves towards the point under the cursor, not towards the centre.</li>
+</ol>
+<figure><img src="images/guide/planes-1.png" alt="planes-1" loading="lazy"><figcaption>The lut plane focused (key <kbd>3</kbd>). The other planes stay visible above and below. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;plane=lut&amp;panels=left,hdl&amp;zoom=0.8">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/planes-2.png" alt="planes-2" loading="lazy"><figcaption>The same plane in <b>solo</b>: the other planes are hidden. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;solo=lut&amp;plane=lut&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/planes-4.png" alt="planes-4" loading="lazy"><figcaption>Zoom to cursor: two wheel steps over the group of LUTs at the left of the plane. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;plane=lut&amp;zoom=0.8&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> Solo a plane to count objects that overlap, and zoom to the cursor to read a crowded region of a big plane such as the placed plane of <code>sha</code>.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;plane=lut&amp;panels=left,hdl&amp;zoom=0.8">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="view2d">
+<h2>10. The 2D view and collapsible panels</h2>
+<p class="bench">Design: <code>bm_DL_74381_ALU</code></p>
+<p class="q"><b>Question.</b> How do I see one plane from above, and how do I clear the screen?</p>
+<ol>
+<li>In the <i>View</i> menu choose <b>2D: lut</b>: that plane seen from above, rotation off. Choose <b>3D stack</b> to go back.</li>
+<li>Press <kbd>[</kbd>, <kbd>h</kbd> and <kbd>]</kbd> to collapse the left panel, the HDL pane and the right panel. Press them again to restore. The state is kept in the browser.</li>
+<li>Press <kbd>?</kbd> at any time to open the help page in a new tab.</li>
+</ol>
+<figure><img src="images/guide/planes-3.png" alt="planes-3" loading="lazy"><figcaption>The 2D view of the lut plane, seen from above, with the left panel and the HDL pane collapsed. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;view=lut&amp;panels=left,hdl">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/panels-1.png" alt="panels-1" loading="lazy"><figcaption>All three panels collapsed, line 13 still selected: the whole window shows the stack. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;sel=line:13&amp;panels=left,hdl,right">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> Use the 2D view for the real FPGA grid on the placed plane, where the x and y of each atom are true coordinates. Collapse the panels to take a screenshot for a paper or a talk.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;view=lut&amp;panels=left,hdl">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<p class="dim" style="margin-top:3rem">Counts and numbers in the captions are read from the viewer on the bundles of this site. A value that was not measured is grey in the
+viewer, never a default.</p>
+</main>
+</body>
+</html>

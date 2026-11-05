@@ -2,8 +2,9 @@
 
 Layout of DIR:
   index.html              table of the benchmarks
+  help.html, guide.html   the one help page and the "How to use" guide (images in _assets/images)
   _assets/                viewer assets shared by every benchmark (app.js, vendor/, images/, ...)
-  <suite>-<design>/       index.html (viewer), help.html, bundle/ (manifest.json plus gzip parts)
+  <suite>-<design>/       index.html (viewer), bundle/ (manifest.json plus gzip parts)
 
 Every bundle JSON file is gzipped (mtime 0, so rebuilds are byte-identical) and cut into parts
 of at most PART_BYTES; the manifest `parts` map lists the parts of each file in order. The
@@ -16,6 +17,7 @@ from __future__ import annotations
 import gzip
 import html
 import json
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -127,18 +129,42 @@ def lut_ff_counts(bundle: Path) -> tuple[int, int]:
 
 
 def _viewer_page(text: str) -> str:
-    return text.replace("./vendor/", "../_assets/vendor/").replace("./app.js", "../_assets/app.js")
+    return (
+        text.replace("./vendor/", "../_assets/vendor/")
+        .replace("./app.js", "../_assets/app.js")
+        .replace('href="help.html"', 'href="../help.html"')
+    )
 
 
-def _help_page(text: str) -> str:
-    return text.replace("<head>", '<head>\n<base href="../_assets/">', 1)
+def _root_page(text: str) -> str:
+    """help.html and guide.html live at the site root; their pictures are in _assets/images."""
+    return text.replace('src="images/', 'src="_assets/images/')
+
+
+_TRY = re.compile(r'<a class="tryit" href="@([^/"]+)/([^"]*)">(.*?)</a>', re.S)
+
+
+def guide_page(text: str, slugs: set[str]) -> str:
+    """Try-it links are written `@SLUG/?query` in the template; a benchmark that is not in this
+    build loses its link (so every link in the built site resolves)."""
+
+    def fix(m: re.Match[str]) -> str:
+        slug, rest, label = m.groups()
+        if slug in slugs:
+            return f'<a class="tryit" href="{slug}/{rest}">{label}</a>'
+        note = f"benchmark {html.escape(slug)} is not in this build"
+        return f'<span class="tryit dim">{label} ({note})</span>'
+
+    return _TRY.sub(fix, _root_page(text))
 
 
 def copy_assets(out: Path) -> None:
     assets = out / "_assets"
     if assets.exists():
         shutil.rmtree(assets)
-    shutil.copytree(WEB, assets, ignore=shutil.ignore_patterns("index.html", "help.html"))
+    shutil.copytree(
+        WEB, assets, ignore=shutil.ignore_patterns("index.html", "help.html", "guide.html")
+    )
 
 
 def build_one(spec: Spec, out: Path, work: Path) -> dict[str, Any]:
@@ -149,9 +175,6 @@ def build_one(spec: Spec, out: Path, work: Path) -> dict[str, Any]:
     pack_bundle(raw, bench / "bundle")
     (bench / "index.html").write_text(
         _viewer_page((WEB / "index.html").read_text(encoding="utf-8")), encoding="utf-8"
-    )
-    (bench / "help.html").write_text(
-        _help_page((WEB / "help.html").read_text(encoding="utf-8")), encoding="utf-8"
     )
     luts, ffs = lut_ff_counts(raw)
     return {
@@ -185,6 +208,7 @@ body{{font:14px/1.45 system-ui,sans-serif;margin:2em auto;max-width:70em;padding
 table{{border-collapse:collapse;width:100%}}
 th,td{{border-bottom:1px solid #ddd;padding:.35em .6em;text-align:left}}
 td.n{{text-align:right}} th{{background:#f3f3f3}}
+.nav{{background:#fff6e5;border-left:4px solid #ffb454;padding:.5em .8em}}
 </style></head><body>
 <h1>Heimdall III</h1>
 <p>The watchman who sees all nine worlds. Each benchmark below is shown as a stack of planes,
@@ -192,6 +216,9 @@ from the HDL down to the placed chip; click an object to see its column up to th
 Rotate with the mouse, press <b>?</b> in a viewer for the help page.
 Part of Yggdrasil III; the benchmarks come from the
 <a href="{e(catalogue)}">Mimir III catalogue</a>.</p>
+<p class="nav"><a href="guide.html"><b>How to use Heimdall</b></a>: worked examples with
+screenshots, each with a link that opens the exact view. &nbsp;
+<a href="help.html"><b>Help</b></a>: every control, the keys and the deep-link parameters.</p>
 <table><thead><tr><th>design</th><th>suite</th><th>LUTs</th><th>FFs</th>
 <th>what it does</th><th>catalogue</th></tr></thead>
 <tbody>
@@ -213,4 +240,11 @@ def build_site(
             rows.append(build_one(spec, out, Path(tmp)))
     rows.sort(key=lambda r: (r["suite"], r["luts"], r["design"]))
     (out / "index.html").write_text(index_html(rows, base_url, catalogue), encoding="utf-8")
+    (out / "help.html").write_text(
+        _root_page((WEB / "help.html").read_text(encoding="utf-8")), encoding="utf-8"
+    )
+    (out / "guide.html").write_text(
+        guide_page((WEB / "guide.html").read_text(encoding="utf-8"), {r["slug"] for r in rows}),
+        encoding="utf-8",
+    )
     return rows
