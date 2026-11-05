@@ -130,7 +130,7 @@ one at a time under `systemd-run --user --scope -p MemoryMax=4G`, outputs under
 
 - Mimir (PR to mimirIII, worktree `work/mimir-heimdall`): add a `view` column in `catalogue.md` and `.html` for
   rows with a Heimdall page. The URL is `<heimdall_base_url>/<suite>-<design>/`, with `heimdall_base_url` a config
-  key (placeholder until Peter gives his webpage URL; empty = no column links). Mimir stays free of Heimdall code.
+  key (`https://drpeterjamieson.com/RESEARCH/HEIMDALL/`; empty = no column links). Mimir stays free of Heimdall code.
 - Yggdrasil hub (PR to drpaj12/YggdrasilIII, worktree `work/ygg-heimdall`): `heimdallIII` as submodule under
   `components/` like the others; add Heimdall III to `docs/` (architecture, pieces, features, versions) and to the
   tree picture. The picture is TikZ: `images/src/fig_yggdrasil.tex`, rendered by `make` in `images/` (needs
@@ -160,7 +160,8 @@ Wyrd side: delete `wyrd/o3viz/`, moved tests, tools and docs; `wyrd/vizcli.py` b
 Order of work after the green light: move + CI + README; site builder; flows and the 14-ish site build; Mimir PR;
 Yggdrasil PR; report.
 
-## 7. Open points for Peter
+## 7. Decisions (Peter 2026-11-05)
 
-1. Webpage URL for `heimdall_base_url` (placeholder until known).
-2. PyPI name: the package name `heimdall` may be taken on PyPI; the project name stays `heimdallIII` if so.
+1. `heimdall_base_url = https://drpeterjamieson.com/RESEARCH/HEIMDALL/`, Heimdall's own directory next to the Mimir
+   material on Peter's webpage. Peter uploads the built site directory there; nothing is uploaded by the tools.
+2. Not published to PyPI. Local package `heimdall`, project name heimdallIII.
