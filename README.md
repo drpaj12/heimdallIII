@@ -31,10 +31,11 @@ twelve VerilogEval designs, `ch_intrinsics` and `sha`. The list is filled in bel
 
 ## Citations
 
-- J. Kundarewich, "Sequential circuit characterisation and partitioning for benchmark generation", MASc thesis,
-  University of Toronto, 2002 (the Comb and Latched matrices).
-- J. Hutton, J. Rose, et al., on the characterisation and synthetic generation of circuits (sequential level,
-  fanout), as implemented in `heimdall/hutton.py`.
+- P. D. Kundarewich, "Synthetic Circuit Generation Using Clustering and Iteration", MASc thesis, University of
+  Toronto, 2002 (Comb and Latched matrices, sections 2.1, 3.1 to 3.3, 5.1).
+- M. Hutton, J. Rose, J. Grossman and D. Corneil, "Characterization and parameterized generation of synthetic
+  combinational circuits", IEEE TCAD 17(10):985-996, 1998, and M. Hutton, J. Rose and D. Corneil, "Generation of
+  synthetic sequential benchmark circuits", FPGA 1997; used as the thesis describes them.
 - J. Rose et al., "The VTR project", 2012, and VTR 9 (TRETS 2025), for the flow the FPGA planes come from.
 
 ## Licence
