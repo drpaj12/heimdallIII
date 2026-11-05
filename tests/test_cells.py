@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from wyrd.o3viz import blif, cells, nets
+from heimdall import blif, cells, nets
 
 SRC = [
     "module m(input clk, input [1:0] sel, output reg [3:0] q);",

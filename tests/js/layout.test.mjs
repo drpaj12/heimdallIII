@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseState, toggled, panelForKey, gridColumns, load, save } from "../../wyrd/o3viz/web/layout.js";
+import { parseState, toggled, panelForKey, gridColumns, load, save } from "../../heimdall/web/layout.js";
 
 test("state parses, defaults to open and survives garbage", () => {
   assert.deepEqual(parseState(null), { left: false, hdl: false, right: false });

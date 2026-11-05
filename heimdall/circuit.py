@@ -14,7 +14,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from wyrd.o3viz import anchors, blif, hutton, partition
+from heimdall import anchors, blif, hutton, partition
 
 Pos = anchors.Pos
 Link = tuple[str, str, str, str]

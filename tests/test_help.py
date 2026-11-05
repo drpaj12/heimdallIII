@@ -6,7 +6,7 @@ import re
 import unittest
 from html.parser import HTMLParser
 
-from wyrd.o3viz import serve
+from heimdall import serve
 
 WEB = serve.WEB
 

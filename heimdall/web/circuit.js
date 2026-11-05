@@ -1,7 +1,7 @@
 // Hutton / Kundarewich circuit measures on the lut plane (pure: no DOM, no three.js).
 // Definitions: Kundarewich, "Synthetic Circuit Generation Using Clustering and Iteration", MASc, U. Toronto,
-// 2002, sections 2.1 and 3.1-3.3. They match wyrd/o3viz/hutton.py; tests/js/circuit.test.mjs and
-// tests/test_o3viz_hutton.py use the same hand-computed circuit.
+// 2002, sections 2.1 and 3.1-3.3. They match heimdall/hutton.py; tests/js/circuit.test.mjs and
+// tests/test_hutton.py use the same hand-computed circuit.
 
 const bump = (h, at, by = 1) => { while (h.length <= at) h.push(0); h[at] += by; };
 

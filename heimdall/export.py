@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from wyrd.o3viz import anchors, anchorset, blif, cells, circuitviz, graphs, nets, vprfiles
+from heimdall import anchors, anchorset, blif, cells, circuitviz, graphs, nets, targets, vprfiles
 
 BUNDLE_VERSION = 1
 CONF_RANK = {"exact": 4, "high": 3, "medium": 2, "low": 1, "ambiguous": 0}
@@ -25,7 +25,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "edges in",
         "planes": ["stg", "cfg", "ddg"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.graphs: edges into the node of the write_graph file",
+        "measurer": "heimdall.graphs: edges into the node of the write_graph file",
         "source": "odin3 write_graph",
     },
     {
@@ -33,7 +33,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "edges out",
         "planes": ["stg", "cfg", "ddg"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.graphs: edges out of the node of the write_graph file",
+        "measurer": "heimdall.graphs: edges out of the node of the write_graph file",
         "source": "odin3 write_graph",
     },
     {
@@ -66,7 +66,7 @@ METRICS: list[dict[str, Any]] = [
         "planes": ["hdl", "cell", "lut", "placed", "ddg"],
         "scale": "seq",
         "measurer": (
-            "wyrd.o3viz.export: a $dff-type cell, a BLIF .latch, or a declared reg that a "
+            "heimdall.export: a $dff-type cell, a BLIF .latch, or a declared reg that a "
             "flip-flop drives"
         ),
         "source": "odin3 netlist dumps and BLIF",
@@ -77,7 +77,7 @@ METRICS: list[dict[str, Any]] = [
         "planes": ["lut", "placed"],
         "scale": "seq",
         "measurer": (
-            "wyrd.o3viz.hutton: Hutton's sequential level, the fewest flip-flops on any path "
+            "heimdall.hutton: Hutton's sequential level, the fewest flip-flops on any path "
             "from a primary input (0 at a primary input, +1 through a flip-flop, MIN over inputs)"
         ),
         "source": "odin3 BLIF; Kundarewich 2002 section 2.1.3",
@@ -87,7 +87,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "1 = latched node",
         "planes": ["lut", "placed"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.hutton: a LUT whose output drives the D input of a flip-flop",
+        "measurer": "heimdall.hutton: a LUT whose output drives the D input of a flip-flop",
         "source": "odin3 BLIF; Kundarewich 2002 section 3.1",
     },
     {
@@ -95,7 +95,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "1 = drives a primary output",
         "planes": ["lut", "placed"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.hutton: the net is listed in the BLIF .outputs",
+        "measurer": "heimdall.hutton: the net is listed in the BLIF .outputs",
         "source": "odin3 BLIF",
     },
     {
@@ -104,7 +104,7 @@ METRICS: list[dict[str, Any]] = [
         "planes": ["lut", "placed"],
         "scale": "seq",
         "measurer": (
-            "wyrd.o3viz.hutton: Hutton's fanout, the LUTs the net drives (flip-flop D inputs "
+            "heimdall.hutton: Hutton's fanout, the LUTs the net drives (flip-flop D inputs "
             "and block pins not counted)"
         ),
         "source": "odin3 BLIF; Kundarewich 2002 section 2.1.1",
@@ -142,7 +142,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "levels",
         "planes": ["hdl"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the HDL construct tree",
+        "measurer": "heimdall.export from the HDL construct tree",
         "source": "prov step read",
     },
     {
@@ -150,7 +150,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "count",
         "planes": ["hdl"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the HDL construct tree",
+        "measurer": "heimdall.export from the HDL construct tree",
         "source": "prov step read",
     },
     {
@@ -158,7 +158,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "lines",
         "planes": ["hdl"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the source span",
+        "measurer": "heimdall.export from the source span",
         "source": "prov step read",
     },
     {
@@ -166,7 +166,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "count",
         "planes": ["hdl"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export, LUT objects whose chain reaches this construct",
+        "measurer": "heimdall.export, LUT objects whose chain reaches this construct",
         "source": "prov step map links",
     },
     {
@@ -174,7 +174,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "nets",
         "planes": ["lut", "placed"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the mapped BLIF",
+        "measurer": "heimdall.export from the mapped BLIF",
         "source": "odin3 BLIF",
     },
     {
@@ -182,7 +182,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "nets",
         "planes": ["lut", "placed"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the mapped BLIF",
+        "measurer": "heimdall.export from the mapped BLIF",
         "source": "odin3 BLIF",
     },
     {
@@ -191,7 +191,7 @@ METRICS: list[dict[str, Any]] = [
         "planes": ["hdl", "lut", "clb", "placed"],
         "scale": "seq",
         "measurer": (
-            "wyrd.o3viz.export, .names depth from inputs and register/block outputs; "
+            "heimdall.export, .names depth from inputs and register/block outputs; "
             "lut and placed: the object itself; clb: max over the atoms inside; "
             "hdl: max over the LUTs linked below"
         ),
@@ -202,7 +202,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "register stages",
         "planes": ["lut", "placed"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export, registers and block outputs add one to the deepest input",
+        "measurer": "heimdall.export, registers and block outputs add one to the deepest input",
         "source": "odin3 BLIF",
     },
     {
@@ -210,7 +210,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "count",
         "planes": ["lut"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export, links to HDL constructs",
+        "measurer": "heimdall.export, links to HDL constructs",
         "source": "prov step map",
     },
     {
@@ -218,7 +218,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "rank 0-4 (4 exact)",
         "planes": ["lut"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export, weakest link confidence",
+        "measurer": "heimdall.export, weakest link confidence",
         "source": "prov step map",
     },
     {
@@ -242,7 +242,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "count",
         "planes": ["clb"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the VPR .net",
+        "measurer": "heimdall.export from the VPR .net",
         "source": "vpr .net",
     },
     {
@@ -250,7 +250,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "count",
         "planes": ["clb"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the VPR .net and BLIF",
+        "measurer": "heimdall.export from the VPR .net and BLIF",
         "source": "vpr .net",
     },
     {
@@ -258,7 +258,7 @@ METRICS: list[dict[str, Any]] = [
         "unit": "count",
         "planes": ["clb"],
         "scale": "seq",
-        "measurer": "wyrd.o3viz.export from the VPR .net and BLIF",
+        "measurer": "heimdall.export from the VPR .net and BLIF",
         "source": "vpr .net",
     },
     {
@@ -1079,6 +1079,8 @@ def export_bundle(
         "bundle_version": BUNDLE_VERSION,
         "benchmark": benchmark,
         "flow": "vtr",
+        "plane_targets": targets.plane_targets(order),
+        "coord": targets.coord_headers(order, list(grid)),
         "design": meta["index"]["design"],
         "top": meta["top"],
         "tools": tool_versions(ff.record),

@@ -1,7 +1,7 @@
 """Load the o3viz viewer on one bundle in headless Chromium and write a screenshot.
 
-Needs `playwright` (pip install playwright; playwright install chromium); not a Wyrd dependency.
-Usage: python tools/o3viz_shot.py BUNDLE_DIR OUT.png [--colour METRIC] [--select ID] [--eval JS]
+Needs `playwright` (pip install playwright; playwright install chromium); not a runtime dependency.
+Usage: python tools/shot.py BUNDLE_DIR OUT.png [--colour METRIC] [--select ID] [--eval JS]
 Exit code 1 if the page logged a console error or did not become ready.
 """
 
@@ -27,7 +27,7 @@ def shoot(
 ) -> list[str]:
     from playwright.sync_api import sync_playwright
 
-    from wyrd.o3viz import serve
+    from heimdall import serve
 
     srv = serve.make_server(bundle, 0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()

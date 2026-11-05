@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from wyrd.o3viz import anchors, anchorset, blif, circuit, hutton
+from heimdall import anchors, anchorset, blif, circuit, hutton
 
 Pos = anchors.Pos
 

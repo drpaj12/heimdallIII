@@ -13,10 +13,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 
-from wyrd import cli
-from wyrd.o3viz import anchors, blif, export, serve, vprfiles
+from heimdall import anchors, blif, cli, export, serve, vprfiles
 
-DATA = Path(__file__).resolve().parent / "data" / "o3viz"
+DATA = Path(__file__).resolve().parent / "data"
 FLOW = DATA / "flow"
 
 
@@ -328,7 +327,7 @@ class TestServeAndCli(unittest.TestCase):
             try:
                 man = json.loads(urllib.request.urlopen(base + "/bundle/manifest.json").read())
                 self.assertEqual(man["benchmark"], "test:t")
-                self.assertIn(b"o3viz", urllib.request.urlopen(base + "/").read())
+                self.assertIn(b"Heimdall III", urllib.request.urlopen(base + "/").read())
                 with self.assertRaises(urllib.error.HTTPError):
                     urllib.request.urlopen(base + "/bundle/../../etc/passwd")
             finally:
@@ -340,14 +339,12 @@ class TestServeAndCli(unittest.TestCase):
             out = Path(d) / "b.o3viz"
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = cli.main(
-                    ["viz", "export", str(FLOW), "--out", str(out), "--src", str(DATA / "src")]
-                )
+                rc = cli.main(["export", str(FLOW), "--out", str(out), "--src", str(DATA / "src")])
             self.assertEqual(rc, 0)
             self.assertIn("planes hdl 3, lut 3, clb 3, placed 4", buf.getvalue())
             with redirect_stderr(io.StringIO()):
-                self.assertEqual(cli.main(["viz", "serve", d]), 2)
-                self.assertEqual(cli.main(["viz", "export", d, "--out", str(Path(d) / "x")]), 2)
+                self.assertEqual(cli.main(["serve", d]), 2)
+                self.assertEqual(cli.main(["export", d, "--out", str(Path(d) / "x")]), 2)
 
 
 if __name__ == "__main__":

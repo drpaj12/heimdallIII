@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spearman, mutualInfo, ranks } from "../../wyrd/o3viz/web/stats.js";
+import { spearman, mutualInfo, ranks } from "../../heimdall/web/stats.js";
 
 const close = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) < e, `${a} vs ${b}`);
 

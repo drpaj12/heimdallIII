@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from wyrd.o3viz import blif, circuit, hutton, partition
+from heimdall import blif, circuit, hutton, partition
 
-DATA = Path(__file__).resolve().parent / "data" / "o3viz"
+DATA = Path(__file__).resolve().parent / "data"
 
 
 def micro() -> blif.Netlist:

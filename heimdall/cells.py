@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from wyrd.o3viz import blif, nets
+from heimdall import blif, nets
 
 FF_TYPE = re.compile(r"^\$(a|s|ald)?dff|^\$dlatch|^\$_(DFF|DLATCH)")
 LABEL = re.compile(

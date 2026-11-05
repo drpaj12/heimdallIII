@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from wyrd.o3viz import cells, graphs, nets
+from heimdall import cells, graphs, nets
 
 SP = "d.v:"
 HDL_IDS = ["hdl:m", "hdl:sw", "hdl:c1", "hdl:c2", "hdl:sig.state", "hdl:sig.a"]
@@ -305,7 +305,7 @@ class BusScoapTests(unittest.TestCase):
         self.assertEqual(m["cc1"]["ddg:w2"], 6.0)
 
     def test_bus_scoap_is_worst_over_bits_and_skips_unreachable(self) -> None:
-        from wyrd.o3viz import export
+        from heimdall import export
 
         sc = {"a": (1, 5, 2), "b": (4, 2, 0), "c": (10**18, 1, 1), "d": (1, 1, 1)}
         tab: dict[str, cells.Bus] = {
@@ -414,7 +414,7 @@ class PortNetTests(unittest.TestCase):
         return d
 
     def netlist(self) -> Any:
-        from wyrd.o3viz import blif
+        from heimdall import blif
 
         nl = blif.Netlist()
         nl.primary_inputs = {"a", "b", "p[0]", "p[1]"}

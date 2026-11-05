@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parse, evaluate, varsOf } from "../../wyrd/o3viz/web/expr.js";
+import { parse, evaluate, varsOf } from "../../heimdall/web/expr.js";
 
 const run = (text, vars = {}) => evaluate(parse(text), (n) => (n in vars ? vars[n] : null));
 

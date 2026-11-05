@@ -1,9 +1,11 @@
-# o3viz: the 3D provenance viewer
+# Heimdall III: the 3D provenance viewer
 
-o3viz shows one benchmark as a stack of planes in a web browser: the HDL constructs on top, then the LUTs
+(Formerly `o3viz` in Wyrd III; the image file names keep that prefix.)
+
+Heimdall III shows one benchmark as a stack of planes in a web browser: the HDL constructs on top, then the LUTs
 Odin III made, the VPR clusters, and the placed atoms on the real FPGA grid at the bottom. Each plane can be
 coloured and sized by any measured parameter, and a click on an object highlights its column through all the
-planes and shows the HDL lines behind it. Design: `docs/specs/2026-11-03-o3viz-design.md`.
+planes and shows the HDL lines behind it. Design: `docs/specs/2026-11-03-o3viz-design.md` (viewer) and `docs/specs/2026-11-05-heimdall-design.md` (project, two targets, site).
 
 ![o3viz on VTR ch_intrinsics](images/o3viz-ch_intrinsics.png)
 
@@ -17,19 +19,19 @@ records and the step files (the Odin III tools are `odin3-flow`, `odin3-prov-pos
     odin3-flow design.v --prov --keep-results --out RUN
     odin3-prov-post RUN
     odin3-prov-steps RUN
-    wyrd viz export RUN --out design.o3viz --benchmark vtr-verilog:design --src DIR_WITH_design.v [--odin3 PATH]
+    heimdall export RUN --out design.o3viz --benchmark vtr-verilog:design --src DIR_WITH_design.v [--odin3 PATH]
 
 The bundle is a directory of JSON files (`manifest.json`, `planes/`, `links.json`, `edges/`, `anchors/`, `hdl/`),
 deterministic: exporting twice gives the same bytes. A value that was not measured is `null` and shows grey.
 
 ## View it
 
-    wyrd viz serve design.o3viz            # prints http://127.0.0.1:8765/ (use --port N for another) ; open it in a browser
+    heimdall serve design.o3viz            # prints http://127.0.0.1:8765/ (use --port N for another) ; open it in a browser
 
-Everything is served locally; three.js is vendored (`wyrd/o3viz/web/vendor`, MIT), nothing is fetched from a
+Everything is served locally; three.js is vendored (`heimdall/web/vendor`, MIT), nothing is fetched from a
 network.
 
-- Help: the "? Help" link at the top of the left panel, or the key `?`, opens `wyrd/o3viz/web/help.html` (what the planes are, every control,
+- Help: the "? Help" link at the top of the left panel, or the key `?`, opens `heimdall/web/help.html` (what the planes are, every control,
   the shortcut table, known limits) in a new tab. It is one static file with its own `images/`, so it moves with `web/`.
 - Source pane (left, 40% of the width; drag the divider to resize): the whole HDL file with line numbers, tabs
   for several files. Click a line, or drag or shift-click a range. The constructs whose span covers the lines
@@ -104,7 +106,7 @@ object kind. Two joins build new metrics, which then appear in every dropdown:
 
 - Expression: a name and a formula over metric names, for example `fanout * (1 - slack_worst)`. Operators
   `+ - * / % ^`, comparisons, and `abs sqrt log log2 exp floor ceil round min max pow clamp if`. It is parsed by
-  a small parser of its own (`wyrd/o3viz/web/expr.js`, no `eval`). A missing value gives a missing result.
+  a small parser of its own (`heimdall/web/expr.js`, no `eval`). A missing value gives a missing result.
 - Across planes: `min`, `max`, `mean`, `sum` or `count` of a metric over the objects linked below (for an HDL
   construct, its LUTs) or above (for a LUT, its constructs). Direct links only, one hop.
 
@@ -132,7 +134,7 @@ is the one function `loadBundle` if a design of 100x this size needs it.
 Peter's questions on the M4 viewer: where are the muxes of a case, how does one line of a case sit in the rest of
 it, how to tell a bus apart, and where are the flip-flops.
 
-**Cell plane (between hdl and lut).** `wyrd viz export` re-runs the flow's Odin III script (read from
+**Cell plane (between hdl and lut).** `heimdall export` re-runs the flow's Odin III script (read from
 `odin3/odin3.log`) with two extra `write_json` dumps: the netlist right after `proc` (word cells: `$mux`, `$pmux`,
 `$eq`, `$dff`, with their HDL spans and provenance records) and the netlist right before the BLIF write (the wire
 names of the nets that survive). Odin III is used as a program only; no Odin III change was needed. Links: a cell
@@ -184,7 +186,7 @@ combinational circuits", IEEE TCAD 17(10):985-996, 1998, and M. Hutton, J. Rose 
 synthetic sequential benchmark circuits", FPGA 1997. The two Hutton papers are not on disk; they are used as the
 thesis describes them. Descriptive only: no hypothesis is tested.
 
-**Definitions as implemented** (`wyrd/o3viz/hutton.py`, `circuit.py`, `web/circuit.js`; same numbers in Python and
+**Definitions as implemented** (`heimdall/hutton.py`, `circuit.py`, `web/circuit.js`; same numbers in Python and
 JavaScript tests on one hand-computed sequential circuit, `tests/data/o3viz/hutton/s.blif`):
 
 - Objects are the lut-plane objects: LUTs, flip-flops, hard blocks and the primary inputs that something reads.
@@ -214,7 +216,7 @@ the anchor): `hdl-module`, `hdl-block` (a direct child of a module: an always bl
 reaches several clusters takes the one with the smallest span and is counted ("reach several clusters"); a
 flip-flop with no HDL link takes its driver's cluster; `vpr` (the packer's clusters); `mincut` (recursive
 Fiduccia-Mattheyses hypergraph bipartition in `partition.py`, standard library, seeded, deterministic; k defaults to
-the number of HDL block clusters within 2 to 16, `wyrd viz export --clusters K` to choose). Kundarewich used hMETIS;
+the number of HDL block clusters within 2 to 16, `heimdall export --clusters K` to choose). Kundarewich used hMETIS;
 this is not hMETIS and its cut is a heuristic result. Objects with no cluster form "(none)".
 
 **Panel.** Shapes of the whole circuit or of the current selection (an HDL line's logic gets its own shape; edges
@@ -273,7 +275,7 @@ state is kept in `localStorage`. The draggable HDL divider is kept.
 ## M7: graph planes above the HDL (STG, CFG, signal DDG) and the SCOAP join
 
 Peter 2026-11-05: show Odin III's graph exports as planes above the HDL view. Odin III writes them with
-`write_graph stg|cfg|ddg FILE` (schema `odin3-graph` v1, `odin3/docs/user/graph-views.md`). `wyrd viz export` now runs the
+`write_graph stg|cfg|ddg FILE` (schema `odin3-graph` v1, `odin3/docs/user/graph-views.md`). `heimdall export` now runs the
 three commands inside the same extra Odin III run as the M5 dumps (`cfg` just before `proc`, `stg` and `ddg` just after)
 and `scoap --prov`. Use `--odin3 PATH` to run a different Odin III program than the one in the flow's log (the flow may
 have used an older build). If the build lacks a command the exporter retries without it and the manifest `notes` say
@@ -374,3 +376,13 @@ worst slack of the paths through the object; objects on no reported path stay gr
     .venv/bin/python -m unittest tests.test_o3viz_help   # help page: keys vs app.js, images present
     node --test tests/js/*.test.mjs       # expression language, line and cone selection
     python tools/o3viz_shot.py BUNDLE out.png --colour slack_worst   # needs playwright + chromium
+
+## Build a static site
+
+    heimdall site --out SITE --base-url https://drpeterjamieson.com/RESEARCH/HEIMDALL/ \
+        "vtr-verilog:ch_intrinsics=RUN_DIR,src=DIR_WITH_HDL,what=short description" ...
+
+A spec argument may be `@FILE` with one spec per line. `SITE` holds `index.html` (a table of the benchmarks with
+LUTs, FFs and a link to the Mimir catalogue), `_assets/` (the viewer, shared) and one directory per benchmark
+with `index.html`, `help.html` and `bundle/` (gzip parts, no file over 40 MB). Upload the directory to any static
+web host; no server code is needed. To test it locally: `python -m http.server` in `SITE`, then stop it.

@@ -19,7 +19,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from wyrd.o3viz import cells
+from heimdall import cells
 
 PLANES = ("stg", "cfg", "ddg")  # top to bottom, all above hdl
 INF = 10**17  # SCOAP infinity is 10^18

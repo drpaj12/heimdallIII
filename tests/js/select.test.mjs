@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseSpan, innermost, hdlCovering, reachDown, linesOf, cone } from "../../wyrd/o3viz/web/select.js";
+import { parseSpan, innermost, hdlCovering, reachDown, linesOf, cone } from "../../heimdall/web/select.js";
 
 const hdl = { src: [[["t.v", "1.1-5.10"]], [["t.v", "3.1-3.30"]], [["t.v", "3.10-3.20"]], [["t.v", "4.1-4.20"]], [["u.v", "3.1-3.5"]], []] };
 
@@ -68,7 +68,7 @@ test("cone: depth limit and both directions", () => {
   assert.ok(b.edges.some(([x, y]) => x === "b" && y === "c"));
 });
 
-import { chainFor, tiers, parseBus, busHue, bitLight, declLine } from "../../wyrd/o3viz/web/select.js";
+import { chainFor, tiers, parseBus, busHue, bitLight, declLine } from "../../heimdall/web/select.js";
 
 // module m > always a > case c > items i1 (with inner stmt s1), i2, i3
 const H = {
@@ -125,7 +125,7 @@ test("bus names, colours and declaration lines", () => {
   assert.equal(declLine(["x"], "var0"), 0);
 });
 
-import { mixOf, meanMix, mixRGB, mixText } from "../../wyrd/o3viz/web/select.js";
+import { mixOf, meanMix, mixRGB, mixText } from "../../heimdall/web/select.js";
 
 test("graded ownership: shares of the cells, mean over LUTs, colour mix", () => {
   const m = mixOf(["A", "B", "B", undefined]);

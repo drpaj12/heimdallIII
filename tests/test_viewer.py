@@ -10,10 +10,10 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from wyrd.o3viz import export, serve
+from heimdall import export, serve
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "tests" / "data" / "o3viz"
+DATA = ROOT / "tests" / "data"
 
 
 class TestVendored(unittest.TestCase):

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { khopEdges, nodeEdges, propagate, isGraph, KEYS } from "../../wyrd/o3viz/web/graphview.js";
+import { khopEdges, nodeEdges, propagate, isGraph, KEYS } from "../../heimdall/web/graphview.js";
 
 const E = [["a", "b", "data", "", 0, []], ["b", "c", "data", "", 0, []], ["c", "d", "control", "", 1, []], ["x", "y", "data", "", 0, []]];
 

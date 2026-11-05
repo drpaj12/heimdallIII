@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { characterize, edgeLength, cellEdges, matrixOf, heat, fold } from "../../wyrd/o3viz/web/circuit.js";
-import { cellAt } from "../../wyrd/o3viz/web/circuitdraw.js";
+import { characterize, edgeLength, cellEdges, matrixOf, heat, fold } from "../../heimdall/web/circuit.js";
+import { cellAt } from "../../heimdall/web/circuitdraw.js";
 
-// tests/data/o3viz/hutton/s.blif as a lut plane (the same hand-computed values as tests/test_o3viz_hutton.py)
+// tests/data/hutton/s.blif as a lut plane (the same hand-computed values as tests/test_hutton.py)
 const names = ["a", "b", "c", "n1", "n2", "q1", "n3", "n4", "q2", "z"];
 const type = ["net", "net", "net", "names", "names", "latch", "names", "names", "latch", "names"];
 const lv = [0, 0, 0, 1, 2, 0, 1, 2, 0, 1];

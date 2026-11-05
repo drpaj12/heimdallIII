@@ -4,7 +4,7 @@ The flow's own run keeps no wire names for the nets ABC rebuilds (flip-flop outp
 are `$nN`). A second run of the same script, with two `write_json` dumps added, gives (1) the
 netlist right after `proc` (word cells with their HDL spans and, in a second dump, their
 provenance records) and (2) the netlist right before the BLIF write (wire names of the surviving
-nets, flip-flop cells named after their register). Wyrd uses Odin III only as a program here.
+nets, flip-flop cells named after their register). Heimdall uses Odin III only as a program here.
 """
 
 from __future__ import annotations

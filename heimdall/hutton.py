@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Collection
 
-from wyrd.o3viz import blif
+from heimdall import blif
 
 
 def seq_levels(nl: blif.Netlist) -> dict[str, int]:

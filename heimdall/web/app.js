@@ -1,4 +1,4 @@
-// o3viz viewer: one benchmark as a stack of planes (three.js, vendored, no network).
+// Heimdall III viewer: one benchmark as a stack of planes (three.js, vendored, no network).
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { parse, evaluate, varsOf } from "./expr.js";
@@ -24,7 +24,20 @@ const S = { man: null, planes: {}, order: [], links: [], up: new Map(), down: ne
   cl: null, csrc: "", clCache: {}, anchorMeta: {}, cellEdges: null, tier: null, tierInfo: null, ff: "off", busIndex: new Map(), busWidth: new Map(), busFilter: "", ffSlot: {}, clbFF: null,
   g: { data: {}, hops: 1, all: false, labels: true } };
 
+// A static-site bundle lists gzip parts per file in manifest.parts (see `heimdall site`); a plain bundle (from
+// `heimdall serve`) has none. The parts are joined in order and gunzipped with DecompressionStream.
 async function getJson(path) {
+  const parts = S.man && S.man.parts && S.man.parts[path];
+  if (parts) {
+    const bufs = [];
+    for (const f of parts) {
+      const r = await fetch(BUNDLE + f);
+      if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`);
+      bufs.push(await r.blob());
+    }
+    const stream = new Blob(bufs).stream().pipeThrough(new DecompressionStream("gzip"));
+    return JSON.parse(await new Response(stream).text());
+  }
   const r = await fetch(BUNDLE + path);
   if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
   return r.json();
