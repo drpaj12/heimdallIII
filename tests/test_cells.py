@@ -146,6 +146,22 @@ class TestBusesAndFlops(unittest.TestCase):
         self.assertIsNone(cells.port_bus("h22bzdbddcd"))
         self.assertIsNone(cells.port_bus("gnd"))
 
+    def test_port_bus_bit_is_the_offset_from_the_lsb(self) -> None:
+        down = cells.declared_range({"bits": [1] * 8, "offset": 4})  # [11:4]
+        up = cells.declared_range({"bits": [1] * 8, "offset": 4, "upto": 1})  # [4:11]
+        plain = cells.declared_range({"bits": [1] * 8})  # [7:0]
+        rev = cells.declared_range({"bits": [1] * 8, "upto": 1})  # [0:7]
+        self.assertEqual((down, up, plain, rev), ((11, 4), (4, 11), (7, 0), (0, 7)))
+        rng = {"c": down, "d": up, "a": plain, "b": rev}
+        self.assertEqual(cells.port_bus("c[4]", rng), ("c", 0, "own"))
+        self.assertEqual(cells.port_bus("c[11]", rng), ("c", 7, "own"))
+        self.assertEqual(cells.port_bus("d[11]", rng), ("d", 0, "own"))
+        self.assertEqual(cells.port_bus("d[4]", rng), ("d", 7, "own"))
+        self.assertEqual(cells.port_bus("b[7]", rng), ("b", 0, "own"))
+        self.assertEqual(cells.port_bus("b[0]", rng), ("b", 7, "own"))
+        self.assertEqual(cells.port_bus("a[3]", rng), ("a", 3, "own"))
+        self.assertEqual(cells.port_bus("zz[5]", rng), ("zz", 5, "own"))
+
     def test_lut_bus_through_the_net_number_offset(self) -> None:
         nl = blif.Netlist()
         nl.drivers = {"hq": "latch", "hl": "names"}

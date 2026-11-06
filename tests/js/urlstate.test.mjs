@@ -49,3 +49,15 @@ test("every try-it link of the guide parses and nothing is dropped", async () =>
     assert.deepEqual(Object.keys(parseQuery(q)).sort(), want, h);
   }
 });
+
+test("bits=1 turns the bit squares on; anything else is ignored", () => {
+  assert.equal(parseQuery("?bits=1").bits, true);
+  assert.equal("bits" in parseQuery("?bits=yes"), false);
+  assert.ok(PARAMS.includes("bits"));
+});
+
+test("grp= lists reverse groups: ; between groups, , inside one; bad ids dropped", () => {
+  assert.deepEqual(parseQuery("?grp=luts:top/a1,luts:top/b2;cell:u_x").grp, [["luts:top/a1", "luts:top/b2"], ["cell:u_x"]]);
+  assert.deepEqual(parseQuery("?grp=a<b;;ok").grp, [["ok"]]);
+  assert.equal("grp" in parseQuery("?grp=%3Cx%3E"), false);
+});

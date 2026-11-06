@@ -31,6 +31,7 @@
   .ln { display:flex; white-space:pre; cursor:pointer; } .ln:hover { background:#ffffff0d; }
   .ln .no { flex:0 0 52px; text-align:right; padding-right:10px; color:#5d6978; }
   .ln .tx { flex:1; padding-right:20px; }
+  .ln { background-clip:padding-box; } .ln .no { background-repeat:no-repeat; }
   .ln.hitw { background:#ffb4541f; } .ln.hit { background:#ffb45440; box-shadow:inset 3px 0 0 var(--acc); }
   .ln.tA { background:#ff9f1c3a; box-shadow:inset 3px 0 0 #ff9f1c; } .ln.tB { background:#2ec4b63a; box-shadow:inset 3px 0 0 #2ec4b6; }
   .ln.tC { background:#9b8cff1c; }
@@ -80,6 +81,9 @@
       <div id="buslist"></div><div class="sub" id="busnone"></div></div>
     <button id="depthpreset">colour = logic depth (all planes)</button>
     <div class="sub" id="cover"></div>
+    <h2>Bits</h2>
+    <label class="row"><input type="checkbox" id="bits" style="width:auto"> bit squares on the selection</label>
+    <div class="sub">A small square on each selected object that has a bus bit: red = LSb to violet = MSb; a whole-bus object is striped MSb to LSb.</div>
     <h2>Flip-flops</h2>
     <select id="ffmode"><option value="off">cubes only</option><option value="highlight">highlight FFs</option><option value="only">FFs only (others dimmed)</option></select>
     <div class="sub">FFs are small pink cubes: beside the LUT that drives them on lut and placed, around their cluster on clb.</div>

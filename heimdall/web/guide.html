@@ -32,6 +32,7 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 <a href="index.html">index</a>.</p>
 <nav id="toc"><b>Examples</b>
 <ol>
+  <li><a href="#update4">What's new (update 4)</a></li>
   <li><a href="#lines">Select HDL lines</a></li>
   <li><a href="#tiers">Case tiers A, B, C; FSM recoding</a></li>
   <li><a href="#ff">Flip-flops and buses</a></li>
@@ -42,9 +43,19 @@ with what to notice, and a link that opens the viewer in that exact state (the l
   <li><a href="#kundarewich">The Kundarewich view</a></li>
   <li><a href="#planes">Focus, solo, zoom to cursor</a></li>
   <li><a href="#view2d">2D view, collapsible panels</a></li>
+  <li><a href="#rainbow">Rainbow lines, bit squares, reverse groups</a></li>
 </ol></nav>
 <p>The viewer needs a browser with WebGL. Drag to rotate, right-drag to pan, wheel to zoom, click to select. Click empty space to clear the selection.
 Every picture below is a real screenshot of the viewer on the benchmark named above it, taken with the link beside it.</p>
+<section id="update4" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
+<h2>What's new (update 4)</h2>
+<ul>
+<li><b>Rainbow lines.</b> Drag over two or more HDL lines: the first is red, the last violet. Everything each line became, on every plane, takes its colour; an object that comes from several lines is a pie; flip-flops are white.</li>
+<li><b>Bit squares.</b> The new <i>Bits</i> box puts a small square on each selected object that has a bus bit: red is the least significant bit, violet the most significant.</li>
+<li><b>Reverse groups.</b> Shift-click objects in 3D to start groups, each in its own colour (Shift+Alt-click adds to the last group). The HDL lines they came from take the colours; a line shared by groups shows one bar per group. <kbd>Esc</kbd> clears.</li>
+<li><b>Bit order fixed</b> for buses not declared <code>[N:0]</code>. See example 11 below, and <a href="help.html#update4">the help page</a>.</li>
+</ul>
+</section>
 <section class="ex" id="lines">
 <h2>1. Select HDL lines and see what they become on every plane</h2>
 <p class="bench">Design: <code>bm_DL_74381_ALU</code> (a 4-bit ALU, a micro from Odin III)</p>
@@ -206,6 +217,22 @@ Every picture below is a real screenshot of the viewer on the benchmark named ab
 <figure><img src="images/guide/panels-1.png" alt="panels-1" loading="lazy"><figcaption>All three panels collapsed, line 13 still selected: the whole window shows the stack. <span class="dimlink">(<a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;sel=line:13&amp;panels=left,hdl,right">open this view</a>)</span></figcaption></figure>
 <p class="idea"><b>Idea.</b> Use the 2D view for the real FPGA grid on the placed plane, where the x and y of each atom are true coordinates. Collapse the panels to take a screenshot for a paper or a talk.</p>
 <div class="try"><b>Try it.</b> <a class="tryit" href="@odin3-micro-bm_DL_74381_ALU/?rotate=0&amp;view=lut&amp;panels=left,hdl">Open this example in the viewer</a>. Then change the line, the plane or the colour and watch what follows.</div>
+</section>
+<section class="ex" id="rainbow">
+<h2>11. Rainbow lines, bit squares and reverse groups</h2>
+<p class="bench">Designs: <code>ch_intrinsics</code> (lines), <code>sha</code> (bits), <code>uart2spi</code> (groups)</p>
+<p class="q"><b>Question.</b> Which of my lines became which object, and which bit of a bus does each object carry?</p>
+<ol>
+<li>Open ch_intrinsics and drag over lines 200 to 202 in the HDL pane. Line 200 is red, 201 green, 202 violet in the pane.</li>
+<li>Look at the lut plane: each LUT has the colour of the line it came from; a LUT that serves two or three lines is a pie of their colours.</li>
+<li>Open sha, click the bus <code>A</code> in the bus legend (Colour menu, <i>bus</i>), and tick <i>Bits</i>. Each LUT of <code>A</code> gets a square: red is bit 0, violet bit 31.</li>
+<li>Open uart2spi. Shift-click one LUT, then another: two groups, red and orange. Shift+Alt-click a third LUT to add it to the orange group. The HDL lines of each group take its colour. <kbd>Esc</kbd> clears.</li>
+</ol>
+<figure><img src="images/guide/rainbow-1.png" alt="rainbow-1" loading="lazy"><figcaption>Lines 200 to 202 of ch_intrinsics on the lut plane: red, green and violet LUTs and pies where a LUT serves more than one line. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-ch_intrinsics/?rotate=0&amp;sel=line:200-202&amp;plane=lut&amp;panels=left&amp;zoom=2.2">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/bits-1.png" alt="bits-1" loading="lazy"><figcaption>Bus <code>A</code> of sha, bits on, lut plane from above: one square per LUT of <code>A</code>, coloured by the bit it computes. <span class="dimlink">(<a class="tryit" href="@vtr-verilog-sha/?rotate=0&amp;sel=bus:A&amp;bits=1&amp;view=lut&amp;zoom=3&amp;panels=left,right">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/groups-1.png" alt="groups-1" loading="lazy"><figcaption>Three reverse groups on uart2spi (red, orange, yellow): the LUTs and everything linked to them, and the HDL lines of the yellow group in the pane. <span class="dimlink">(<a class="tryit" href="@opencores-uart2spi/?rotate=0&amp;grp=luts:top/hffwk3p4m3w;luts:top/hl26au6ed7u;luts:top/ho5yupui42a,luts:top/hovat6k3fqa&amp;plane=lut&amp;panels=left&amp;zoom=1.6">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> Two groups that share many HDL lines are logic that synthesis merged. A bus whose squares run red to violet in order across the placement is laid out in bit order; a scrambled order shows where placement ignored it.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@vtr-verilog-ch_intrinsics/?rotate=0&amp;sel=line:200-202&amp;plane=lut&amp;panels=left&amp;zoom=2.2">Open this example in the viewer</a>. Then drag over other lines and watch the colours follow.</div>
 </section>
 <p class="dim" style="margin-top:3rem">Counts and numbers in the captions are read from the viewer on the bundles of this site. A value that was not measured is grey in the
 viewer, never a default.</p>

@@ -31,6 +31,7 @@ class Signal:
     width: int
     bits: list[int]
     decl: list[str] | None  # [file, span] of the declaration line
+    rng: tuple[int, int] | None = None  # declared (left, right) index
 
 
 @dataclass
@@ -69,6 +70,29 @@ def bit_names(mod: Mapping[str, Any], top: str) -> dict[int, tuple[str, int]]:
             if isinstance(b, int) and b not in out:
                 out[b] = (name, idx)
     return out
+
+
+def declared_range(nn: Mapping[str, Any]) -> tuple[int, int]:
+    """Declared (left, right) index of a netname. Its bit list always runs from the LSb (the right
+    index) up; `offset` is the lowest declared index and `upto` marks an ascending `[lo:hi]`."""
+    width = len(nn.get("bits", []))
+    lo = int(nn.get("offset", 0))
+    hi = lo + max(width, 1) - 1
+    return (lo, hi) if nn.get("upto") else (hi, lo)
+
+
+def ranges(mod: Mapping[str, Any], top: str) -> dict[str, tuple[int, int]]:
+    """Bus name -> declared (left, right) index, for every named wire of the module."""
+    nn = mod.get("netnames", {})
+    return {nets.bare_name(k, top): declared_range(v) for k, v in nn.items()}
+
+
+def bit_offset(index: int, rng: tuple[int, int] | None) -> int:
+    """Offset from the LSb of declared index `index`; the index itself without a range."""
+    if rng is None:
+        return index
+    off = abs(index - rng[1])
+    return off if off < abs(rng[0] - rng[1]) + 1 else index
 
 
 def out_bits(cell: Mapping[str, Any]) -> list[int]:
@@ -351,7 +375,8 @@ def signals_of(d: nets.Dumps, texts: Mapping[str, list[str]]) -> list[Signal]:
         if kind == "wire" and any(b in ffq for b in bits):
             kind = "reg"
         decl = decl_of(name, texts, nn.get("attributes", {}).get("src", ""))
-        out.append(Signal(name, kind, len(nn.get("bits", [])), bits, decl))
+        rng = declared_range(nn)
+        out.append(Signal(name, kind, len(nn.get("bits", [])), bits, decl, rng))
     return out
 
 
@@ -440,10 +465,11 @@ def verified_nets(
     return good, luts, total
 
 
-def port_bus(name: str) -> Bus | None:
+def port_bus(name: str, rngs: Mapping[str, tuple[int, int]] | None = None) -> Bus | None:
+    """Bus of a BLIF net named `bus[declared index]`; the bit is the offset from the LSb."""
     m = re.fullmatch(r"(.+)\[(\d+)\]", name)
     if m:
-        return m.group(1), int(m.group(2)), "own"
+        return m.group(1), bit_offset(int(m.group(2)), (rngs or {}).get(m.group(1))), "own"
     if name in ("gnd", "vcc", "unconn") or name.startswith("$"):
         return None
     return (name, None, "own") if not name.startswith("h") or len(name) != 11 else None
@@ -455,10 +481,11 @@ def net_bus(
     good: set[str],
     off: Callable[[int], int],
     bn: Mapping[int, tuple[str, int]],
+    rngs: Mapping[str, tuple[int, int]] | None = None,
 ) -> Bus | None:
     nid = net_id(d.net_full.get(net, ""))
     if nid is None:
-        return port_bus(net)
+        return port_bus(net, rngs)
     return own_bus([nid - off(nid)], bn) if net in good else None
 
 
@@ -471,9 +498,10 @@ def lut_buses(d: nets.Dumps, nl: blif.Netlist) -> tuple[dict[str, Bus], str]:
     if total == 0 or luts * 100 < total * 95:
         return {}, f"only {luts} of {total} LUT cells match the BLIF; bus names dropped"
     bn = bit_names(d.gates, d.top)
+    rngs = ranges(d.gates, d.top)
     own: dict[str, Bus] = {}
     for net in nl.drivers:
-        b = net_bus(net, d, good, off, bn)
+        b = net_bus(net, d, good, off, bn, rngs)
         if b:
             own[net] = b
     succ: dict[str, list[str]] = defaultdict(list)

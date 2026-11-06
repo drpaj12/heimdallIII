@@ -10,9 +10,11 @@
 //   ff=off|highlight|only  anchor=NAME          csrc=SOURCE compare=SOURCE
 //   scoap=cc0|cc1|co[:min|max|mean]              cone=in|out|both[:DEPTH]
 //   cell=comb|latched:I:J  a Comb or Latched matrix cell
+//   bits=1                 show the bit squares on the selection
+//   grp=ID,ID;ID           reverse groups: ';' separates groups, ',' the objects of one group
 //   panels=left,hdl,right  collapse these panels (not saved)      rotate=0   stop auto-rotation
 export const PARAMS = ["sel", "enclosing", "plane", "solo", "view", "graphs", "zoom", "colour", "size", "height", "fade",
-  "ff", "anchor", "csrc", "compare", "scoap", "cone", "cell", "panels", "rotate"];
+  "ff", "anchor", "csrc", "compare", "scoap", "cone", "cell", "panels", "rotate", "bits", "grp"];
 
 const num = (s) => (/^\d+$/.test(s) ? Number(s) : null);
 const word = (s) => (/^[\w@.:\-]+$/.test(s) ? s : null);
@@ -45,6 +47,11 @@ export function parseQuery(search) {
   if (g("panels")) out.panels = g("panels").split(",").filter((x) => ["left", "hdl", "right"].includes(x));
   if (g("zoom") && Number(g("zoom")) > 0 && Number(g("zoom")) <= 20) out.zoom = Number(g("zoom"));
   if (g("rotate") === "0") out.rotate = false;
+  if (g("bits") === "1") out.bits = true;
+  if (g("grp")) {
+    const groups = g("grp").split(";").map((x) => x.split(",").filter((id) => /^[\w@.:/\-[\]$]+$/.test(id))).filter((x) => x.length);
+    if (groups.length) out.grp = groups.slice(0, 16);
+  }
   const sc = g("scoap") && /^(cc0|cc1|co)(?::(min|max|mean))?$/.exec(g("scoap"));
   if (sc) out.scoap = { m: sc[1], op: sc[2] ?? "max" };
   const co = g("cone") && /^(in|out|both)(?::(\d+))?$/.exec(g("cone"));

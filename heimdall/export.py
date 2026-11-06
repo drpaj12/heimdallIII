@@ -1003,6 +1003,7 @@ def bus_table(planes: dict[str, Plane], sigs: list[cells.Signal]) -> list[dict[s
             "kind": s.kind,
             "width": s.width,
             "decl": s.decl,
+            "range": list(s.rng) if s.rng else None,
             "counts": {},
         }
     for pname, p in planes.items():
@@ -1010,7 +1011,7 @@ def bus_table(planes: dict[str, Plane], sigs: list[cells.Signal]) -> list[dict[s
             if b is None:
                 continue
             e = info.setdefault(
-                b, {"name": b, "kind": "net", "width": 0, "decl": None, "counts": {}}
+                b, {"name": b, "kind": "net", "width": 0, "decl": None, "range": None, "counts": {}}
             )
             e["counts"][pname] = e["counts"].get(pname, 0) + 1
             e["width"] = max(e["width"], (bit or 0) + 1)
