@@ -13,7 +13,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 
-from heimdall import anchors, blif, cli, export, serve, vprfiles
+from heimdall import anchors, blif, cells, cli, export, serve, vprfiles
 
 DATA = Path(__file__).resolve().parent / "data"
 FLOW = DATA / "flow"
@@ -314,6 +314,17 @@ class TestExport(unittest.TestCase):
             for p in out.rglob("*"):
                 if p.is_file():
                     self.assertNotIn(needle, p.read_text(encoding="utf-8"), str(p))
+
+
+class TestHierarchicalBus(unittest.TestCase):
+    def test_sub_module_bus_has_no_signal_link(self) -> None:
+        lut = export.Plane("lut")
+        placed = export.Plane("placed")
+        lut.add("lut:n1", "lut", "names", "odin3", "n1")
+        lut.add("lut:n2", "lut", "names", "odin3", "n2")
+        table: dict[str, cells.Bus] = {"n1": ("a", 0, "own"), "n2": ("a/top_a.out", 0, "own")}
+        out = export.apply_lut_buses(lut, placed, table, "top", {"hdl:sig.a"})
+        self.assertEqual(out, [("hdl:sig.a", "lut:n1", "name", "exact")])
 
 
 class TestServeAndCli(unittest.TestCase):

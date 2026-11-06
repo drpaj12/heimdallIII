@@ -732,9 +732,10 @@ def cell_plane(cd: cells.CellData) -> Plane:
 
 
 def apply_lut_buses(
-    lut: Plane, placed: Plane, table: dict[str, cells.Bus], top: str
+    lut: Plane, placed: Plane, table: dict[str, cells.Bus], top: str, known: set[str]
 ) -> list[tuple[str, str, str, str]]:
-    """Bus columns on the lut and placed planes; the signal links of the named nets."""
+    """Bus columns on the lut and placed planes; the signal links of the named nets. A bus of a
+    sub-module (name with a hierarchy separator) has no signal object in the HDL plane: no link."""
     lut.set_bus({i: table[lut_local(i)] for i in lut.ids if lut_local(i) in table})
     placed.set_bus(
         {i: table[n] for i, n in zip(placed.ids, placed.name, strict=True) if n in table}
@@ -746,7 +747,7 @@ def apply_lut_buses(
     )
     out = []
     for i, b, k in zip(lut.ids, lut.bus, lut.busk, strict=True):
-        if b is not None and k == "own":
+        if b is not None and k == "own" and f"hdl:sig.{b}" in known:
             out.append((f"hdl:sig.{b}", i, "name", "exact"))
     return out
 
@@ -871,7 +872,11 @@ def build_planes(
     table: dict[str, cells.Bus] = {}
     if dumps and cd and cplane:
         table, bus_note = cells.lut_buses(dumps, nl)
-        sigl = apply_lut_buses(lut, placed, table, top) + cd.sig_links + ff_links(cplane, lut)
+        sigl = (
+            apply_lut_buses(lut, placed, table, top, set(hdl.ids))
+            + cd.sig_links
+            + ff_links(cplane, lut)
+        )
         links.extend(cd.links)
     else:
         lut.set_metric(
