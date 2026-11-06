@@ -62,7 +62,7 @@ export async function loadBundle() {
   const files = new Set(Object.keys(S.man.inputs ?? {}));
   for (const p of S.order) for (const srcs of S.planes[p].src) for (const [f] of srcs) files.add(f);
   for (const f of [...files].sort()) {
-    const r = await fetch(BUNDLE + "hdl/" + f);
+    const r = await fetch(BUNDLE + "hdl/" + f.replace(/[<>]/g, "_"));
     S.texts[f] = r.ok ? (await r.text()).split("\n") : null;
   }
   if (S.man.circuit) {

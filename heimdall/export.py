@@ -1066,7 +1066,9 @@ def export_bundle(
         write_json(out / "anchors" / f"{name}.json", aset)
     hashes: dict[str, str] = {}
     for name, path in sources.items():
-        dest = out / "hdl" / name
+        dest = (
+            out / "hdl" / re.sub(r"[<>]", "_", name)
+        )  # a name like <odin3>/x.v: valid on every host
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, dest)
         hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
