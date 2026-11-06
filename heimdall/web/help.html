@@ -30,6 +30,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
 
 <nav id="toc"><b>Contents</b>
 <ol>
+  <li><a href="#update4">What's new (update 4)</a></li>
   <li><a href="#planes">What you are looking at: the planes</a></li>
   <li><a href="#links">Provenance links and columns</a></li>
   <li><a href="#hdl">The HDL pane and selecting lines</a></li>
@@ -45,6 +46,27 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#limits">Known limits per plane</a></li>
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
+
+<h2 id="update4">What's new (update 4): rainbow lines, bit squares, reverse groups</h2>
+<ul>
+<li><b>Rainbow lines.</b> Select two or more HDL lines (drag in the pane). Line 1 is red, the last line violet, the others spread evenly
+between. Every object linked to a line, on every plane, takes that line's colour; an object reached from several lines is a pie of their
+colours. Flip-flops in the selection are white. Each selected line is painted in its colour in the pane. One line gives red. (One line
+inside a <code>case</code> or <code>if</code> chain still shows the case tiers A, B, C.)</li>
+<li><b>Bit squares.</b> Tick <i>bit squares on the selection</i> (left panel, "Bits"). Each selected object that has a bus bit gets a small
+square: red is the least significant bit, violet the most significant bit of its bus. An object that holds the whole bus (a word cell, a
+signal) gets a square striped from the most significant bit to the least. Objects whose bus was only inferred from the logic they feed have
+no known bit and get no square. The body colour says which line or group; the square says which bit.</li>
+<li><b>Reverse groups.</b> Shift-click an object in the 3D view: it starts a group in the next colour of red, orange, yellow, green, cyan, blue,
+indigo, violet (then the colours repeat). Shift+Alt-click adds an object to the last group. Everything linked to a group, on every plane,
+and its HDL lines take the group's colour. A line shared by several groups shows one colour bar per group beside its number; a shared
+object is a pie. <kbd>Esc</kbd> or "clear selection" resets. (Shift + drag still brushes.)</li>
+<li><b>Bit order fixed.</b> On the LUT and placed planes the bit index of a bus is now always counted from the least significant bit,
+also for buses declared <code>[0:7]</code> or <code>[11:4]</code>.</li>
+</ul>
+<div class="try"><b>Try this.</b> Open ch_intrinsics, drag over lines 200 to 202 in the pane (red, green, violet), press the focus button of the lut plane
+in the right panel, then tick the bits box and click a bus in the bus legend (Colour menu, "bus"). See also the
+<a href="guide.html#rainbow">guide example 11</a>.</div>
 
 <h2 id="planes">1. What you are looking at: the planes</h2>
 <p>One benchmark is drawn as a stack of horizontal planes. Top to bottom: <code>stg</code>, <code>cfg</code>, <code>ddg</code>,
@@ -86,6 +108,8 @@ them.</li>
 highlighted; the rest is dimmed. The right panel counts the objects per plane.</li>
 <li>The reverse also works: clicking an object in 3D highlights its HDL lines in the pane and scrolls to them.</li>
 <li>Clicking the declaration line of a reg selects its flip-flops on every plane; of a wire, its driving logic.</li>
+<li>Two or more selected lines are coloured as a rainbow, first line red to last line violet (see "What's new"): the objects each line
+reaches, and the line itself, carry its colour. Up to 300 lines are coloured; a longer drag selects without colours.</li>
 </ul>
 <figure><img src="images/o3viz-line.png" alt="an HDL line selected"><figcaption>One HDL line selected: its column is lit on every plane.</figcaption></figure>
 <div class="try"><b>Try this.</b> Click a line inside an <code>always</code> block, then tick "include enclosing constructs" and watch the counts grow.</div>
@@ -112,6 +136,10 @@ and a cluster or placed atom takes the mean over its LUTs. Hover shows the share
 with a filter box and a count; click one to select it on every plane and mark its declaration line. A bus name comes from the
 object's own net, or, for unnamed logic, from the one bus it feeds. Anything else is grey and counted as "no bus". The option appears
 only when the bundle has bus names.</p>
+<p><b>Bit squares.</b> The "Bits" box in the left panel draws, on every selected object that has a bus bit, a small square coloured by the
+bit: red = least significant bit, violet = most significant bit (counted over the declared width of the bus). It works with any selection:
+HDL lines, an object, a bus from the legend, a brush, reverse groups. The bit is the offset from the least significant bit, so a bus
+declared <code>[0:7]</code> has its violet bit at index 0, as Verilog defines it.</p>
 <figure><img src="images/o3viz-m5-bus.png" alt="colour = bus"><figcaption>Colour = bus, with <code>return_val</code> selected.</figcaption></figure>
 <p><b>Flip-flops</b> are small pink cubes on every plane: beside the LUT that drives their D input on lut and placed, around their
 cluster on clb (a cluster shows one cube per flip-flop inside). The Flip-flops menu has three modes: "cubes only", "highlight FFs",
@@ -256,9 +284,10 @@ space. Keys: <kbd>[</kbd> left panel, <kbd>h</kbd> HDL pane, <kbd>]</kbd> right 
 <tr data-key="["><td><kbd>[</kbd></td><td>collapse or restore the left panel</td></tr>
 <tr data-key="h"><td><kbd>h</kbd></td><td>collapse or restore the HDL pane</td></tr>
 <tr data-key="]"><td><kbd>]</kbd></td><td>collapse or restore the right panel</td></tr>
+<tr data-key="Escape"><td><kbd>Esc</kbd></td><td>clear the selection, the rainbow and the reverse groups</td></tr>
 <tr data-key="?"><td><kbd>?</kbd></td><td>open this help in a new tab</td></tr>
 </table>
-<p>Mouse: click selects; drag rotates; right-drag pans; wheel zooms to the cursor; <kbd>Shift</kbd> + drag brushes; on the HDL pane, drag or
+<p>Mouse: click selects; drag rotates; right-drag pans; wheel zooms to the cursor; <kbd>Shift</kbd> + drag brushes; <kbd>Shift</kbd>-click an object starts a reverse group, <kbd>Shift</kbd>+<kbd>Alt</kbd>-click adds to the last group; on the HDL pane, drag or
 shift-click selects a range.</p>
 
 <h2 id="limits">13. Known limits per plane</h2>
@@ -306,6 +335,8 @@ malformed value. Example:</p>
 <tr><td><code>cone</code></td><td><code>in</code>, <code>out</code> or <code>both</code>, optionally <code>:DEPTH</code></td><td>netlist cone of the selection (depth 6 by default)</td></tr>
 <tr><td><code>panels</code></td><td><code>left,hdl,right</code> (any of them)</td><td>collapse those panels (not saved in the browser)</td></tr>
 <tr><td><code>rotate</code></td><td><code>0</code></td><td>no auto-rotation</td></tr>
+<tr><td><code>bits</code></td><td><code>1</code></td><td>tick the "bit squares on the selection" box</td></tr>
+<tr><td><code>grp</code></td><td><code>ID,ID;ID</code></td><td>reverse groups: <code>;</code> separates groups, <code>,</code> the objects of one group (ids as in the right panel)</td></tr>
 </table>
 <p>Selection and view parameters are applied in a fixed order: panels, graphs, anchor, cluster sources, colour channels, selection, cone, view,
 solo, focus, zoom. The case tiers need no parameter: a line selection inside a <code>case</code> item shows them.</p>

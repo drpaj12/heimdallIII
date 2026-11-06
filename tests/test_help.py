@@ -50,7 +50,12 @@ def _bound_keys() -> set[str]:
     # app.js binds 0, 1-9 and ? by literal tests inside the keydown handler
     handler = app[app.index('document.addEventListener("keydown"') :]
     handler = handler[: handler.index("});")]
-    for lit, key in (('e.key === "0"', "0"), ("[1-9]", "1-9"), ('e.key === "?"', "?")):
+    for lit, key in (
+        ('e.key === "0"', "0"),
+        ("[1-9]", "1-9"),
+        ('e.key === "?"', "?"),
+        ('e.key === "Escape"', "Escape"),
+    ):
         if lit in handler:
             out.add(key)
     return out
@@ -74,6 +79,17 @@ class TestHelp(unittest.TestCase):
         for src in s.imgs:
             self.assertFalse(src.startswith(("/", "http", "..")), src)
             self.assertTrue((WEB / src).is_file(), src)
+
+    def test_update4_section_first_in_help_and_guide(self) -> None:
+        help_text = (WEB / "help.html").read_text()
+        guide_text = (WEB / "guide.html").read_text()
+        self.assertIn("What's new (update 4)", help_text)
+        self.assertIn("What's new (update 4)", guide_text)
+        self.assertLess(help_text.index('id="update4"'), help_text.index('id="planes"'))
+        self.assertLess(guide_text.index('id="update4"'), guide_text.index('id="lines"'))
+        for word in ("rainbow", "bit squares", "Shift", "Esc"):
+            self.assertIn(word.lower(), help_text.lower(), word)
+        self.assertIn('id="bits"', (WEB / "index.html").read_text())
 
     def test_viewer_links_help(self) -> None:
         self.assertIn('href="help.html"', (WEB / "index.html").read_text())

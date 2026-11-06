@@ -13,6 +13,7 @@ LPM = "odin3-micro-bm_lpm_all"
 INTR = "vtr-verilog-ch_intrinsics"
 SHA = "vtr-verilog-sha"
 CLOCK = "verilogeval-Prob141_count_clock"
+UART = "opencores-uart2spi"
 
 VIZ = "window.__o3viz"
 SCROLL = "id => document.getElementById(id).scrollIntoView({block: 'start'})"
@@ -20,6 +21,8 @@ RIGHT = {"x": 300, "y": 0, "width": 1300, "height": 900}
 # worst VPR path of sha: its first and one-before-last LUT objects
 SHA_FIRST = "luts:sha1/hr5mitk2qg7"
 SHA_LAST = "luts:sha1/hm6fp24itnu"
+# three reverse groups on uart2spi: one LUT each, the third with a second LUT added
+GROUPS = "luts:top/hffwk3p4m3w;luts:top/hl26au6ed7u;luts:top/ho5yupui42a,luts:top/hovat6k3fqa"
 
 
 def define(shot: Callable[..., None]) -> None:
@@ -74,3 +77,7 @@ def define(shot: Callable[..., None]) -> None:
         f"[0, 1].forEach(() => {VIZ}.wheelAt(540, 440, -300))",
     )
     shot("panels-1", ALU, "sel=line:13&panels=left,hdl,right")
+    # 11 rainbow lines, bit squares, reverse groups
+    shot("rainbow-1", INTR, "sel=line:200-202&plane=lut&panels=left&zoom=2.2")
+    shot("bits-1", SHA, "sel=bus:A&bits=1&view=lut&zoom=3&panels=left,right")
+    shot("groups-1", UART, "grp=" + GROUPS + "&plane=lut&panels=left&zoom=1.6")

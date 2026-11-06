@@ -41,6 +41,7 @@ class TestExprJs(unittest.TestCase):
                 str(ROOT / "tests" / "js" / "stats.test.mjs"),
                 str(ROOT / "tests" / "js" / "select.test.mjs"),
                 str(ROOT / "tests" / "js" / "urlstate.test.mjs"),
+                str(ROOT / "tests" / "js" / "rainbow.test.mjs"),
             ],
             capture_output=True,
             text=True,
@@ -140,6 +141,42 @@ class TestSmoke(unittest.TestCase):
         self.assertIn("luts:t/hq", out[13])
         self.assertEqual(out[16], "placed")
         self.assertEqual(out[18], [False, True, False, False])
+
+    def test_rainbow_bits_groups(self) -> None:
+        spec = importlib.util.spec_from_file_location("o3viz_shot", ROOT / "tools" / "shot.py")
+        assert spec is not None and spec.loader is not None
+        o3viz_shot = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(o3viz_shot)
+        with tempfile.TemporaryDirectory() as d:
+            bundle = Path(d) / "b.o3viz"
+            export.export_bundle(DATA / "flow", bundle, "test:t", [DATA / "src"])
+            out: list[Any] = []
+            errors = o3viz_shot.shoot(
+                bundle,
+                Path(d) / "s.png",
+                "",
+                "",
+                evals=[
+                    "window.__o3viz.selectLines('t.v', 2, 4)",
+                    "window.__o3viz.S.paint.kind + ' ' + window.__o3viz.S.paint.cols.length",
+                    "window.__o3viz.S.paint.cols[0]",
+                    "window.__o3viz.setBits(true)",
+                    "window.__o3viz.groupClick('luts:t/hl2', false)",
+                    "window.__o3viz.groupClick('luts:t/hq', false)",
+                    "window.__o3viz.S.groups.groups.length + ' ' + window.__o3viz.S.paint.kind",
+                    "window.__o3viz.groupClick('luts:t/hl1', true)",
+                    "window.__o3viz.S.groups.groups[1].ids.length",
+                    "window.__o3viz.selectLines('t.v', 3, 3)",
+                    "window.__o3viz.S.groups.groups.length",
+                ],
+                results=out,
+            )
+            self.assertEqual(errors, [])
+        self.assertEqual(out[1], "lines 3")
+        self.assertEqual(out[2], "#ee2b2b")  # the first of several lines is red
+        self.assertEqual(out[6], "2 groups")
+        self.assertEqual(out[8], 2)
+        self.assertEqual(out[10], 0)  # a line selection drops the groups
 
 
 if __name__ == "__main__":
