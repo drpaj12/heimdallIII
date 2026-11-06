@@ -8,6 +8,7 @@ import { characterize, edgeLength, cellEdges } from "./circuit.js";
 import { barChart, drawMatrix, drawShape, cellAt } from "./circuitdraw.js";
 import { GRAPHS, KEYS as GKEYS, isGraph, khopEdges, nodeEdges, edgeClass, propagate } from "./graphview.js";
 import { parseQuery } from "./urlstate.js";
+import { rainbow, groupColour, lineOwners, groupOwners, newGroups, addGroup, addToCurrent, clearGroups, lineMap, barGradient, bitStripes, pieSlices } from "./rainbow.js";
 import { parseSpan, innermost, hdlCovering, reachDown, cone as coneOf, chainFor, tiers as tiersOf, mixOf, meanMix, mixRGB, mixText, busHue, bitLight } from "./select.js";
 
 const BUNDLE = "./bundle/";
@@ -22,7 +23,7 @@ const S = { man: null, planes: {}, order: [], links: [], up: new Map(), down: ne
   height: "", fade: "", slot: {}, anchor: "", brush: null, vis: {}, view: "stack",
   lineSel: null, mode: { type: "none" }, focus: null, solo: null, cone: null, coneOn: false, path: null, paths: [], texts: {},
   srcFile: "", morph: { a: "", b: "", m: 0 }, group: { mode: "", expanded: new Set(), keys: {}, blobs: {} }, edges: null, edgeOn: false,
-  cl: null, csrc: "", clCache: {}, anchorMeta: {}, cellEdges: null, tier: null, tierInfo: null, ff: "off", busIndex: new Map(), busWidth: new Map(), busFilter: "", ffSlot: {}, clbFF: null,
+  cl: null, csrc: "", clCache: {}, anchorMeta: {}, cellEdges: null, tier: null, tierInfo: null, ff: "off", paint: null, groups: newGroups(), bits: false, busIndex: new Map(), busWidth: new Map(), busFilter: "", ffSlot: {}, clbFF: null,
   g: { data: {}, hops: 1, all: false, labels: true } };
 
 // A static-site bundle lists gzip parts per file in manifest.parts (see `heimdall site`); a plain bundle (from
@@ -118,7 +119,7 @@ function colourOf(name, v) {
 }
 
 // ---- scene ----
-let renderer, scene, camera, controls, group, raycaster, meshes = {}, quads = {}, lines = null;
+let renderer, scene, camera, controls, group, raycaster, meshes = {}, quads = {}, lines = null, markMesh = {};
 const dummy = new THREE.Object3D();
 const cx = () => (S.bounds[0] + S.bounds[2]) / 2;
 const cz = () => (S.bounds[1] + S.bounds[3]) / 2;
@@ -268,12 +269,51 @@ function hiddenByGroup(p, i) {
   return !!keys && keys[i] !== null && keys[i] !== undefined && !S.group.expanded.has(keys[i]);
 }
 
+// Pies (several owners) and bit squares are drawn as flat vertex-coloured shapes just above the object's top, one
+// mesh per plane. mark = { x, y, z, s, pie: [hex] | null, bit: [hex MSb..LSb] | null }
+const SEG = 24;
+function drawMarks(p, list) {
+  if (markMesh[p]) { group.remove(markMesh[p]); markMesh[p].geometry.dispose(); markMesh[p].material.dispose(); markMesh[p] = null; }
+  if (!list.length) return;
+  const pos = [], col = [], c = new THREE.Color();
+  const tri = (a, b, d, hex) => { c.set(hex); for (const v of [a, b, d]) { pos.push(v[0], v[1], v[2]); col.push(c.r, c.g, c.b); } };
+  for (const m of list) {
+    if (m.pie) {
+      const y = m.y + m.s * 1.02, r = m.s * 1.05;
+      for (const sl of pieSlices(m.pie)) {
+        const n = Math.max(2, Math.round(SEG / m.pie.length));
+        for (let k = 0; k < n; k++) {
+          const a0 = (sl.a0 + (sl.a1 - sl.a0) * (k / n)) * 2 * Math.PI, a1 = (sl.a0 + (sl.a1 - sl.a0) * ((k + 1) / n)) * 2 * Math.PI;
+          tri([m.x, y, m.z], [m.x + r * Math.cos(a0), y, m.z + r * Math.sin(a0)], [m.x + r * Math.cos(a1), y, m.z + r * Math.sin(a1)], sl.colour);
+        }
+      }
+    }
+    if (m.bit) {
+      const y = m.y + m.s * 1.1, h = m.s * 0.5, n = m.bit.length, w = (2 * h) / n;
+      m.bit.forEach((hex, k) => {
+        const x0 = m.x - h + k * w, x1 = x0 + w;
+        tri([x0, y, m.z - h], [x1, y, m.z - h], [x1, y, m.z + h], hex);
+        tri([x0, y, m.z - h], [x1, y, m.z + h], [x0, y, m.z + h], hex);
+      });
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  mesh.visible = meshes[p]?.[0]?.visible !== false;
+  mesh.userData.mark = true;
+  markMesh[p] = mesh;
+  group.add(mesh);
+}
+
 function refreshPlane(p) {
   const d = S.planes[p], k = S.order.indexOf(p);
   const col = S.colour ? d.metrics[S.colour] : null;
   const sz = S.size ? d.metrics[S.size] : null;
   const fd = S.fade ? d.metrics[S.fade] : null;
   const r0 = unitR(p);
+  const hl = S.bits ? highlighted() : null, marks = [];
   d.ids.forEach((id, i) => {
     const [m, j] = S.slot[p][i];
     const pos = posOf(p, i);
@@ -308,12 +348,21 @@ function refreshPlane(p) {
       c = new THREE.Color(r, g, b);
     } else if (S.tier) {
       if (tr) { c = new THREE.Color(TIER_COL[tr]); if (tr === "C") c.lerp(BG, 0.4); } else c.lerp(BG, 0.86);
+    } else if (S.paint?.owners.has(id) && st < 3) {
+      c = ff ? new THREE.Color("#ffffff") : new THREE.Color(S.paint.cols[S.paint.owners.get(id)[0]]);
     } else if (st === 3) c = new THREE.Color(CONE_COL[S.cone.nodes.get(id)] ?? "#5fe0ff");
     else if (st === 2 && !(S.colour === "@bus" && S.mode.type === "bus")) c = new THREE.Color("#ffb454");
     else if (st === -1) c.lerp(BG, 0.82);
     if (dim && !S.tier && st < 1) c.lerp(BG, 0.85);
     m.setColorAt(j, c);
+    if (s > 1e-3) {
+      const owners = S.paint && !S.tier ? S.paint.owners.get(id) : null;
+      const pie = owners && owners.length > 1 && !ff ? owners.map((o) => S.paint.cols[o]) : null;
+      const bit = hl?.has(id) && d.bus?.[i] ? bitStripes(d.bus[i], d.bit[i], d.busk?.[i], S.busWidth.get(d.bus[i]) ?? 1) : null;
+      if (pie || bit) marks.push({ x, y, z, s, pie, bit });
+    }
   });
+  drawMarks(p, marks);
   for (const m of meshes[p]) {
     m.instanceMatrix.needsUpdate = true;
     m.instanceColor.needsUpdate = true;
@@ -631,6 +680,7 @@ export function select(id) {
 }
 function clearSel() {
   S.sel = null; S.brush = null; S.core = new Set(); S.lineSel = null; S.path = null; S.cone = null; S.tier = null; S.tierInfo = null;
+  S.paint = null; clearGroups(S.groups);
   S.cellEdges = null;
   S.mode = { type: "none" };
   $("pathinfo").textContent = "no path drawn";
@@ -639,6 +689,8 @@ function clearSel() {
   $("sel").textContent = "Click an HDL line or a node. Everything linked to it is highlighted."; $("sel").className = "sub";
 }
 async function afterSelection() {
+  if (S.mode.type !== "line" && S.mode.type !== "groups") S.paint = null;
+  if (S.mode.type !== "groups") clearGroups(S.groups);
   if (S.coneOn) await updateCone(); else refreshAll();
   markLines();
   showSelection();
@@ -668,6 +720,15 @@ export function planeCounts() {
   return c;
 }
 
+function paintLegend() {
+  const P = S.paint, count = (o) => [...P.owners.values()].filter((l) => l.includes(o)).length;
+  const sw = (c) => `<span style="color:${c}">&#9632;</span>`;
+  if (P.kind === "lines") {
+    const grad = P.cols.length > 1 ? `<div style="height:8px;border-radius:3px;background:linear-gradient(to right,${rainbow(0, 2)},${[1, 2, 3, 4, 5].map((k) => rainbow(k, 6)).join(",")})"></div>` : "";
+    return `<h2>Line colours</h2>${grad}<div class="sub">${sw(P.cols[0])} line ${P.lo} to ${sw(P.cols[P.cols.length - 1])} line ${P.hi}: red first, violet last. An object reached from several lines is a pie; flip-flops are white.</div>`;
+  }
+  return '<h2>Groups</h2>' + P.cols.map((c, k) => `<div>${sw(c)} group ${k + 1}: ${S.groups.groups[k].ids.length} clicked, ${count(k)} objects</div>`).join("");
+}
 function tierTable() {
   const c = tierCounts();
   const rows = S.order.map((p) => `<tr><td>${p}</td>` + ["A", "B", "C"].map((t) => `<td style="color:${TIER_COL[t]}">${c[p][t]}</td>`).join("") + "</tr>").join("");
@@ -700,6 +761,8 @@ function showSelection() {
   if (m.type === "obj" && S.sel && isGraph(S.byId.get(S.sel).plane)) html += graphPanel(S.sel);
   if (m.type === "cell") html += `<div><b>${esc(m.text)}</b>: ${m.n} edges, highlighted in yellow; their endpoints and the HDL lines behind them are selected</div>`;
   if (m.type === "bus") html += `<div><b>Bus ${esc(m.name)}</b>: ${m.n} objects across the planes${m.decl ? "; declared at line " + m.decl[1].split(".")[0] : ""}</div>`;
+  if (m.type === "groups") html += `<div><b>${m.n} group${m.n === 1 ? "" : "s"}</b>: shift-click adds a group, shift+alt-click adds to the last one, Esc clears</div>`;
+  if (S.paint) html += paintLegend();
   if (S.tier) html += tierTable();
   const c = planeCounts();
   html += '<h2>Linked objects per plane</h2><div class="col">' + S.order.map((p) =>
@@ -863,9 +926,13 @@ function showFile(file) {
 function paintLines() {
   const mk = marks.get(S.srcFile), ls = S.lineSel && S.lineSel.file === S.srcFile ? S.lineSel : null;
   const lo = ls ? Math.min(ls.a, ls.b) : 0, hi = ls ? Math.max(ls.a, ls.b) : -1;
+  const pm = S.paint?.lines.get(S.srcFile);
   for (let n = 1; n < rows.length; n++) {
     const cls = ls && n >= lo && n <= hi ? "sel" : mk?.get(n);
     rows[n].className = "ln" + (cls ? " " + cls : "");
+    const cols = pm?.get(n)?.map((o) => S.paint.cols[o]);
+    rows[n].style.background = cols ? (cols.length === 1 ? cols[0] + "66" : "#ffffff14") : "";
+    rows[n].firstChild.style.backgroundImage = cols ? barGradient(cols) : "";
   }
 }
 
@@ -936,15 +1003,62 @@ function selectLines(file, a, b) {
   S.mode = { type: "line", file, a: Math.min(a, b), b: Math.max(a, b), n: ids.length };
   setTier(ids);
   hdlSelection(ids);
+  // one line inside a case keeps its tier view; two or more lines (or any other line) take the rainbow
+  S.paint = S.tier && a === b ? null : linePaint(file, a, b);
+  if (S.paint) { S.tier = null; S.tierInfo = null; S.tierMix = null; }
   afterSelection();
 }
 // the brush is a set of HDL constructs; everything linked below (cell, lut, clb, placed) and above (graph planes)
+function reachSet(ids) {
+  const r = reachDown(ids, S.order, (id) => S.byId.get(id)?.plane, S.down);
+  const up = ids.flatMap((id) => (S.up.get(id) ?? []).filter((u) => isGraph(S.byId.get(u)?.plane)));
+  return new Set([...S.order.filter((p) => p !== "hdl" && !isGraph(p)).flatMap((p) => [...r[p]]), ...up]);
+}
 function hdlSelection(ids) {
   if (!ids.length) { S.brush = null; S.core = new Set(); return; }
-  const r = reachDown(ids, S.order, (id) => S.byId.get(id)?.plane, S.down);
   S.brush = new Set(ids);
-  const up = ids.flatMap((id) => (S.up.get(id) ?? []).filter((u) => isGraph(S.byId.get(u)?.plane)));
-  S.core = new Set([...S.order.filter((p) => p !== "hdl" && !isGraph(p)).flatMap((p) => [...r[p]]), ...up]);
+  S.core = reachSet(ids);
+}
+
+// ---- rainbow: line k of n selected lines takes the k-th colour, red to violet; its reach carries it ----
+const MAX_RAINBOW_LINES = 300;
+function linePaint(file, a, b) {
+  const lo = Math.min(a, b), hi = Math.max(a, b), n = hi - lo + 1, hdl = S.planes.hdl;
+  if (!hdl || n > MAX_RAINBOW_LINES) return null;
+  const starts = [];
+  for (let l = lo; l <= hi; l++) starts.push([...hdlCovering(hdl, file, l, l, $("enclosing").checked)].map((i) => hdl.ids[i]));
+  const cols = starts.map((_, k) => rainbow(k, n));
+  const owners = lineOwners(starts, (ids) => [...ids, ...reachSet(ids)]);
+  const lines = new Map([[file, new Map(cols.map((_, k) => [lo + k, [k]]))]]);
+  return { kind: "lines", owners, cols, lines, lo, hi };
+}
+
+// ---- reverse groups: shift-click objects; a group's reach and HDL lines take its colour ----
+function groupClick(id, add) {
+  if (!S.byId.has(id)) return;
+  if (add) addToCurrent(S.groups, id); else addGroup(S.groups, id);
+  applyGroups();
+}
+function applyGroups() {
+  const gs = S.groups.groups, memo = new Map();
+  const reach = (id) => memo.get(id) ?? memo.set(id, new Set([id, ...closure(id, "up"), ...closure(id, "down")])).get(id);
+  const owners = groupOwners(gs, reach), cols = gs.map((g) => groupColour(g.colour)), items = [];
+  const prim = new Set(gs.flatMap((g) => g.ids));
+  gs.forEach((g, k) => {
+    const all = new Set(g.ids.flatMap((id) => [...reach(id)])), per = new Map();
+    for (const id of all) {
+      const o = S.byId.get(id), src = S.planes[o.plane].src[o.i];
+      if (o.plane === "hdl") { const sp = src[0] && parseSpan(src[0][1]); if (sp) (per.get(src[0][0]) ?? per.set(src[0][0], []).get(src[0][0])).push({ span: sp }); }
+      else if (g.ids.includes(id) && src.length) { const last = src[src.length - 1], sp = parseSpan(last[1]); if (sp) (per.get(last[0]) ?? per.set(last[0], []).get(last[0])).push({ span: sp }); }
+    }
+    for (const [file, list] of per) for (const it of innermost(list)) items.push({ file, l0: it.span.l0, l1: it.span.l1, owner: k });
+  });
+  S.sel = null; S.lineSel = null; S.path = null; S.tier = null; S.tierInfo = null; S.cone = null;
+  S.brush = prim;
+  S.core = new Set([...owners.keys()].filter((id) => !prim.has(id)));
+  S.mode = { type: "groups", n: gs.length };
+  S.paint = gs.length ? { kind: "groups", owners, cols, lines: lineMap(items) } : null;
+  afterSelection();
 }
 // click an edge row of the panel: its two ends and the HDL it comes from
 export function selectEdge(kind, idx) {
@@ -1122,6 +1236,7 @@ function applyVisibility() {
   for (const p of S.order) {
     const v = S.vis[p] !== false && (S.view === "stack" || S.view === p);
     meshes[p].forEach((m) => { m.visible = v; });
+    if (markMesh[p]) markMesh[p].visible = v;
     quads[p].q.visible = quads[p].edge.visible = quads[p].lab.visible = v;
     if (S.group.blobs[p]) S.group.blobs[p].mesh.visible = v;
   }
@@ -1647,6 +1762,7 @@ function buildUi() {
   $("colour").addEventListener("change", (e) => { S.colour = e.target.value; refreshAll(); });
   $("size").addEventListener("change", (e) => { S.size = e.target.value; refreshAll(); });
   $("ffmode").addEventListener("change", (e) => { S.ff = e.target.value; refreshAll(); });
+  $("bits").addEventListener("change", (e) => { S.bits = e.target.checked; refreshAll(); });
   $("busfilter").addEventListener("input", (e) => { S.busFilter = e.target.value; fillBusList(); });
   $("height").addEventListener("change", (e) => { S.height = e.target.value; refreshAll(); });
   $("fade").addEventListener("change", (e) => { S.fade = e.target.value; refreshAll(); });
@@ -1709,6 +1825,7 @@ function buildUi() {
   applyPanels();
   document.addEventListener("keydown", (e) => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Escape") { clearSel(); return; }
     if (e.key === "?") { window.open($("helplink").href, "_blank", "noopener"); return; }
     const pk = pl.panelForKey(e.key);
     if (pk) { togglePanel(pk); return; }
@@ -1732,7 +1849,12 @@ function buildUi() {
   cv.addEventListener("pointerup", (e) => {
     controls.enabled = true; box.style.display = "none";
     if (!down) return;
-    if (brushing) { brushing = false; brushSelect(down[0], down[1], e.clientX, e.clientY); return; }
+    if (brushing) {
+      brushing = false;
+      if (Math.hypot(e.clientX - down[0], e.clientY - down[1]) <= 4) { const h = pick(e); if (h?.id) groupClick(h.id, e.altKey); return; }
+      brushSelect(down[0], down[1], e.clientX, e.clientY);
+      return;
+    }
     if (Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
     const h = pick(e);
     if (h?.blob) {
@@ -1769,6 +1891,7 @@ async function applyUrl(u) {
     if (u[k] && meta(u[k])) { S[key] = u[k]; $(id).value = u[k]; }
   }
   if (u.ff) { S.ff = u.ff; $("ffmode").value = u.ff; }
+  if (u.bits) { S.bits = true; $("bits").checked = true; }
   refreshAll();
   if (u.sel?.kind === "line") {
     const f = u.sel.file && S.texts[u.sel.file] ? u.sel.file : S.srcFile;
@@ -1779,6 +1902,7 @@ async function applyUrl(u) {
   } else if (u.sel?.kind === "obj" && S.byId.has(u.sel.id)) select(u.sel.id);
   else if (u.sel?.kind === "bus" && S.busIndex.has(u.sel.id)) selectBus(u.sel.id);
   else if (u.sel?.kind === "path") { const i = S.paths.findIndex((x) => x.n === u.sel.n); if (i >= 0) showPath(i); }
+  if (u.grp) for (const g of u.grp) g.filter((id) => S.byId.has(id)).forEach((id, k) => groupClick(id, k > 0));
   if (u.cell && S.cl) await selectCell(S.csrc, u.cell.which, u.cell.i, u.cell.j);
   if (u.cone) { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = u.cone.dir; $("conedepth").value = String(u.cone.depth); await updateCone(); markLines(); }
   if (u.view && (u.view === "stack" || S.order.includes(u.view))) setView(u.view);
@@ -1800,7 +1924,7 @@ async function main() {
   loop();
   try { await applyUrl(parseQuery(location.search)); } catch (e) { console.error("deep link:", e); }
   document.body.dataset.ready = "1";
-  window.__o3viz = { S, selectEdge, showGraph, scoapColour, drawGraphs, khopEdges, changeAnchor, selectCell, showCircuit, characterize, setCluster: (k) => { $("csrc").value = k; $("csrc").dispatchEvent(new Event("change")); }, setCompare: (on, k) => { $("ccompare").checked = on; if (k) $("csrc2").value = k; showCircuit(); }, togglePanel, panelState: () => ({ ...panels }), select, selectBus, tierCounts, setFF: (m) => { S.ff = m; $("ffmode").value = m; refreshAll(); }, selectLines, planeCounts, coverage, focusPlane, soloPlane, showPath, updateCone, markLines, setCone: async (dir, depth) => { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = dir; $("conedepth").value = String(depth); await updateCone(); markLines(); }, marksOf: () => Object.fromEntries([...marks].map(([f, m]) => [f, Object.fromEntries(m)])), cam: () => ({ target: controls.target.toArray(), pos: camera.position.toArray() }), wheelAt: (x, y, dy) => wheelZoom({ preventDefault() {}, clientX: x, clientY: y, deltaY: dy, deltaMode: 0 }), discover, setView, setGroupMode, discoverMatrix, brushAll: (p) => { S.brush = new Set(S.planes[p].ids.slice(0, 30)); S.core = new Set(); refreshAll(); },
+  window.__o3viz = { S, groupClick, setBits: (on) => { S.bits = on; $("bits").checked = on; refreshAll(); }, selectEdge, showGraph, scoapColour, drawGraphs, khopEdges, changeAnchor, selectCell, showCircuit, characterize, setCluster: (k) => { $("csrc").value = k; $("csrc").dispatchEvent(new Event("change")); }, setCompare: (on, k) => { $("ccompare").checked = on; if (k) $("csrc2").value = k; showCircuit(); }, togglePanel, panelState: () => ({ ...panels }), select, selectBus, tierCounts, setFF: (m) => { S.ff = m; $("ffmode").value = m; refreshAll(); }, selectLines, planeCounts, coverage, focusPlane, soloPlane, showPath, updateCone, markLines, setCone: async (dir, depth) => { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = dir; $("conedepth").value = String(depth); await updateCone(); markLines(); }, marksOf: () => Object.fromEntries([...marks].map(([f, m]) => [f, Object.fromEntries(m)])), cam: () => ({ target: controls.target.toArray(), pos: camera.position.toArray() }), wheelAt: (x, y, dy) => wheelZoom({ preventDefault() {}, clientX: x, clientY: y, deltaY: dy, deltaMode: 0 }), discover, setView, setGroupMode, discoverMatrix, brushAll: (p) => { S.brush = new Set(S.planes[p].ids.slice(0, 30)); S.core = new Set(); refreshAll(); },
     setEdges: async (m, h) => { S.edgeMode = m; S.hops = h ?? 1; await ensureEdges(); drawEdges(); }, setMorph: (a, b, m) => { S.morph = { a, b, m }; refreshAll(); }, addExpr, addAgg, setHeight: (n) => { S.height = n; $("height").value = n; refreshAll(); },
     setAnchor: async (n) => { $("anchor").value = n; $("anchor").dispatchEvent(new Event("change")); }, setColour,
     setSize: (n) => { S.size = n; $("size").value = n; refreshAll(); }, stop: () => { controls.autoRotate = false; } };

@@ -27,7 +27,8 @@ Micro `[7:0]`, `[0:7]`, `[11:4]`, `[4:11]` buses through odin3-flow and the expo
   The existing reach (`hdlCovering` then `reachDown` plus the graph planes above) is run per line. An object reached
   from one line takes its colour; from several lines it gets a pie of those colours (equal slices, line order).
   Flip-flops in the highlight are white. The HDL pane paints each selected line's background in its colour.
-  A selection that is a case/if chain keeps the three tier colours (the tier view wins over the rainbow).
+  A SINGLE line inside a case or if/else chain keeps the three tier colours (the documented M5 tier view); two or
+  more lines, or a line outside a chain, take the rainbow and no tiers.
 - Bit square (toggle `bits`, default off), any selection (lines, object, bus, brush, groups): each highlighted object
   with a bus bit gets a small horizontal square on its top face coloured `rainbow(bit, width)`. An object that holds
   the whole bus (`busk = own`, `bit = null`; word cells, signal objects) gets the square striped MSb..LSb (at most 8
