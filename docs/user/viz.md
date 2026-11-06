@@ -361,6 +361,35 @@ of them (readable for `ch_intrinsics`, a dense block for `sha`; use the k-hop vi
 state to the CFG case that computes its transitions) are not drawn. Nodes with no HDL span (a CFG `join`, an STG state,
 a DDG temporary) have no span links of their own. Output-port and register LUTs have no SCOAP value (above).
 
+## Update 4: rainbow lines, bit squares, reverse groups
+
+Design: `docs/specs/2026-11-06-rainbow-bits-design.md`. Controls are in the help page ("What's new (update 4)") and the
+guide (example 11).
+
+- **Rainbow lines.** Select two or more HDL lines (drag in the pane). Line k of n gets hue `270 * k / (n - 1)` degrees:
+  the first line is red, the last violet; one line is red. Each line's reach (the innermost covering constructs, then
+  every object below on cell, lut, clb and placed, and the graph objects above) takes its colour; an object reached
+  from several lines is a pie of their colours. Flip-flops in the selection are white. The pane paints each selected
+  line in its colour and puts a bar of it beside the line number. One line inside a case or if/else chain keeps the
+  tier view of M5. More than 300 lines select without colours.
+- **Bit squares.** The "Bits" box (URL `bits=1`) puts a flat square on the top of every highlighted object that has a
+  bus bit: colour = hue ramp over the bus width, bit 0 (the LSb) red to bit width-1 (the MSb) violet. An object that
+  holds the whole bus (`busk` = `own`, no bit: word cells, signal objects) gets the square striped MSb to LSb (at
+  most 8 stripes). An object with an inferred bus (`busk` = `cone`) has no known bit and no square. Works for any
+  selection. Body colour says line or group; the square says bit.
+- **Bit order.** `bit` in the bundle is the offset from the LSb: 0 is the right index of the declaration (`[7:0]`: bit 7
+  has offset 7; `[0:7]`: index 7 has offset 0; `[11:4]`: index 4 has offset 0). The manifest bus table also has `range`:
+  the declared `[left, right]`. Before update 4 the lut and placed planes used the declared index for nets named
+  `bus[N]` in the BLIF, which differs from the offset for any range that is not `[N:0]`; those pages were re-exported.
+- **Reverse groups.** Shift-click an object (3D) starts a group in the next colour of red, orange, yellow, green, cyan,
+  blue, indigo, violet (then they repeat; a group keeps its colour). Shift+Alt-click adds the object to the last group.
+  A group's reach (as a plain click: everything linked above and below) takes the colour; an object in several groups
+  is a pie. The HDL lines of a group (the innermost constructs in its reach, plus the own span of the clicked objects)
+  are tinted in its colour; a line in several groups shows one bar per group beside its number. `Esc`, the "clear
+  selection" button, or any other selection resets. URL: `grp=ID,ID;ID` (`;` between groups).
+
+![rainbow lines on the lut plane](images/guide/rainbow-1.png)
+
 ## Metrics
 
 Measured by Odin III's BLIF or VPR files, never invented: `fanin`, `fanout`, `logic_level` (LUT depth from
