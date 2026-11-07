@@ -75,6 +75,7 @@ export async function loadBundle() {
     S.lutAt = new Map(lut.ids.map((id, i) => [id, i]));
     S.lutByName = new Map(lut.ids.map((id, i) => [id.slice(id.indexOf("/") + 1), i]));
   }
+  if (S.man.activity) await loadActivity();
   if (S.man.analytics) S.an = { index: await getJson("analytics/index.json"), data: {}, cur: null, rank: {}, inst: {} };
   await loadAnchor(S.man.anchors.includes("placement") ? "placement" : S.man.anchors[0]);
 }
@@ -746,7 +747,7 @@ async function afterSelection() {
 }
 
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-const fmt = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
+const fmt = (v) => (Number.isInteger(v) ? String(v) : Math.abs(v) < 0.01 ? v.toPrecision(3) : v.toFixed(3));
 
 function infoRows(id) {
   const { plane, i } = S.byId.get(id), d = S.planes[plane];
@@ -1934,8 +1935,61 @@ function buildAnalyticsUi() {
   $("ansilh").innerHTML = sil.map(esc).join("<br>");
 }
 
+// ---- switching activity (Bifrost III power data joined to the planes; update 7) ----
+async function loadActivity() {
+  S.act = { data: await getJson("activity/activity.json"), exact: false };
+  injectActivity();
+}
+function injectActivity() {
+  const d = S.act.data;
+  for (const p of S.order) {
+    const c = d.planes[p];
+    if (!c) continue;
+    for (const k of ["p1", "td", "pw"]) {
+      const exact = S.act.exact && k !== "pw";
+      S.planes[p].metrics[`act_${k}`] = exact ? c[k].map((v, i) => (c.basis[i] === 1 ? v : null)) : c[k];
+      delete S.ranges[`act_${k}`];
+    }
+  }
+}
+const BASIS_NAME = ["none", "net", "line", "link"];
+function actTotals(a) {
+  const t = a.totals, mw = (w) => (w === undefined ? "-" : `${(w * 1e3).toPrecision(4)} mW`), row = (k, v) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`;
+  const rows = [row("total", mw(t.total_w)), row("dynamic", mw(t.dynamic_w)), row("static (leakage)", mw(t.static_w)), row("clock" + (a.target === "asic" ? " (clock-tree cells, a lower bound)" : ""), mw(t.clock_w))];
+  if (t.freq_mhz !== undefined) rows.push(row("frequency", `${t.freq_mhz.toPrecision(4)} MHz`));
+  if (t.energy_per_cycle_pj !== undefined) rows.push(row("energy per cycle", `${t.energy_per_cycle_pj.toPrecision(4)} pJ`));
+  if (t.vectorless_total_w !== undefined) rows.push(row("vectorless (ACE2) total", mw(t.vectorless_total_w)));
+  return `<table>${rows.join("")}</table>`;
+}
+function actLines(a) {
+  const rows = a.lines.slice(0, 30).map((r, k) => `<tr class="actl" data-k="${k}" style="cursor:pointer"><td>${esc(r[0])}:${r[1]}</td><td>${r[2]}</td><td>${r[3] === null ? "-" : r[3].toFixed(3)}</td><td>${r[4] === null ? "-" : r[4].toPrecision(3)}</td><td>${r[5] === null ? "-" : r[5].toPrecision(3)}</td></tr>`);
+  return `<table><tr><td><b>HDL line</b></td><td>nets/cells</td><td>mean P(1)</td><td>toggles/cycle</td><td>uW${a.line_power === "model" ? " (model)" : ""}</td></tr>${rows.join("")}</table>`;
+}
+function buildActUi() {
+  const el = $("actbody"), a = S.act?.data;
+  if (!a) {
+    el.innerHTML = '<div class="sub">No switching-activity data for this page. Bifrost III power runs exist for mmuart, verilog_cordic_core and wb_lcd only (their FPGA and silicon pages); nothing is estimated for the others.</div>';
+    return;
+  }
+  const cov = S.order.map((p) => { const c = a.coverage[p]; return `<tr><td>${p}</td>` + [1, 2, 3, 0].map((k) => `<td>${c[BASIS_NAME[k]]}</td>`).join("") + "</tr>"; }).join("");
+  el.innerHTML = `<div class="sub"><b>Activity source:</b> ${esc(a.source_label)}. Testbench ${esc(a.testbench)}${a.tb_pass ? " (prints PASS)" : ""}, ${a.cycles} cycles of ${esc(a.clock)}${a.start_state ? `, latches start at ${esc(a.start_state)}` : ""}; activity matched on ${(100 * a.matched_fraction).toFixed(1)}% of the nets.</div>` +
+    `<div class="sub">${esc(Object.values(a.tool).join("; "))}</div>${actTotals(a)}` +
+    `<div class="sub"><button id="actp1">colour: static probability</button> <button id="acttd">colour: transition density</button> <button id="actpw">colour: power</button></div>` +
+    `<label class="sub"><input type="checkbox" id="actexact"> exact name matches only (grey elsewhere)</label>` +
+    `<h2>Join per plane (objects by basis)</h2><table><tr><td></td><td>net</td><td>line</td><td>link</td><td>none</td></tr>${cov}</table>` +
+    `<div class="sub">net = the object's own name is the net Bifrost measured; line = mean over the nets on its HDL line; link = mean of linked objects; none = grey.</div>` +
+    `<h2>Per HDL line (click to select)</h2>${actLines(a)}` +
+    a.caveats.map((c) => `<div class="sub">${esc(c)}</div>`).join("") + (a.warnings.length ? `<div class="sub">Tool warnings: ${esc(a.warnings.join("; "))}</div>` : "");
+  for (const k of ["p1", "td", "pw"]) {
+    $(`act${k}`).addEventListener("click", () => { S.colour = `act_${k}`; $("colour").value = S.colour; refreshAll(); });
+  }
+  $("actexact").addEventListener("change", (e) => { S.act.exact = e.target.checked; injectActivity(); refreshAll(); });
+  el.querySelectorAll(".actl").forEach((tr) => tr.addEventListener("click", () => { const r = a.lines[+tr.dataset.k]; if (r[1] > 0) selectLines(r[0], r[1], r[1]); }));
+}
+
 function buildUi() {
   fillMetricSelects();
+  buildActUi();
   if (S.an) buildAnalyticsUi();
   $("colour").addEventListener("change", (e) => { S.colour = e.target.value; refreshAll(); });
   $("size").addEventListener("change", (e) => { S.size = e.target.value; refreshAll(); });
