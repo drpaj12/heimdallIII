@@ -466,15 +466,28 @@ def build_asic_planes(
     std = export.Plane("stdcell")
     below: dict[str, int] = {}
     spans: dict[str, float] = {}
+    composed = False
+    ir_hdl: dict[str, list[str]] = {}
+    if any(lk["to"].startswith("ir:") for o in gate_objs[:50] for lk in o["links"]):
+        # an older prov: gates link to ir cells, those to HDL statements (fine): compose the chain
+        for o in read_objs(_step_file(prov, "elab") or prov / "missing"):
+            ir_hdl[o["id"]] = [lk["to"] for lk in o["links"] if lk["kind"] == "fine"]
     for o in gate_objs:
         master = o.get("type", "")
         std.add(o["id"], "cell", master, o["origin"], o["name"], export.src_of(o))
         mac = macros.get(master)
         spans[o["id"]] = float(len(o["links"]))
+        seen: set[str] = set()
         for lk in o["links"]:
-            if lk["to"] in hdl_ids:
-                links.append((lk["to"], o["id"], lk["kind"], lk["confidence"]))
-                below[lk["to"]] = below.get(lk["to"], 0) + 1
+            targets_ = [(lk["to"], lk["confidence"])]
+            if lk["to"].startswith("ir:"):
+                targets_ = [(h, lk["confidence"]) for h in ir_hdl.get(lk["to"], ())]
+                composed = composed or bool(targets_)
+            for h, hconf in targets_:
+                if h in hdl_ids and h not in seen:
+                    seen.add(h)
+                    links.append((h, o["id"], lk["kind"], hconf))
+                    below[h] = below.get(h, 0) + 1
     hdl.set_metric("cells_below", {i: float(below.get(i, 0)) for i in hdl.ids})
     std_by_name = dict(zip(std.name, std.ids, strict=True))
     std_set = set(std.ids)
@@ -600,6 +613,11 @@ def build_asic_planes(
     cy0 = rows_y[0] / u if rows_y else oy0
     cy1 = (rows_y[-1] + pitch) / u if rows_y else oy1
     planes: dict[str, export.Plane] = {"hdl": hdl, "stdcell": std, "die": die}
+    notes = (
+        ["gates link to ir cells in this prov: hdl -> stdcell links are composed (cone, medium)"]
+        if composed
+        else []
+    )
     if route.ids:
         planes["route"] = route
     meta: dict[str, Any] = {
@@ -614,6 +632,7 @@ def build_asic_planes(
             "x1_um": cx1,
         },
         "fill_cells": fill,
+        "notes": notes,
         "routes": routes,
         "route_pos": rpos,
         "macros": len(macros),
@@ -687,6 +706,7 @@ def export_asic(
     export.write_json(out / "links.json", export.compact_links(order, planes, kept))
     export.write_json(out / "edges" / "lut.json", [])
     notes = [
+        *meta["notes"],
         f"asic target: {meta['fill_cells']} fill and decap cells are not planes",
         "no cell plane: the silicon prov links gates to HDL statements directly (cone, medium)",
     ]
