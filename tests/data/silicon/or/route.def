@@ -1,0 +1,26 @@
+VERSION 5.8 ;
+DESIGN t ;
+UNITS DISTANCE MICRONS 1000 ;
+DIEAREA ( 0 0 ) ( 20000 20000 ) ;
+ROW ROW_1 unithd 1000 4720 FS DO 10 BY 1 STEP 460 0 ;
+ROW ROW_0 unithd 1000 2000 N DO 10 BY 1 STEP 460 0 ;
+COMPONENTS 5 ;
+    - g1 sky130_fd_sc_hd__nand2_1 + SOURCE DIST + PLACED ( 1000 2000 ) N ;
+    - g2 sky130_fd_sc_hd__dfxtp_1 + SOURCE DIST + PLACED ( 5600 4720 ) FS ;
+    - TAP_0 sky130_fd_sc_hd__tapvpwrvgnd_1 + SOURCE DIST + FIXED ( 1000 4720 ) N ;
+    - clkbuf_0_clk sky130_fd_sc_hd__clkbuf_4 + SOURCE TIMING + PLACED ( 8000 2000 ) N ;
+    - FILLER_0_0 sky130_fd_sc_hd__fill_1 + SOURCE DIST + PLACED ( 9000 2000 ) N ;
+END COMPONENTS
+PINS 1 ;
+    - a + NET a + DIRECTION INPUT + USE SIGNAL ;
+END PINS
+NETS 3 ;
+    - n1 ( g1 Y ) ( g2 D ) + USE SIGNAL
+      + ROUTED met1 ( 2000 3000 ) ( 6000 * )
+      NEW met2 ( 6000 3000 ) ( * 5000 )
+      NEW met1 ( 6000 3000 ) M1M2_PR ;
+    - n2 ( PIN a ) ( g1 A ) + USE SIGNAL
+      + ROUTED met1 ( 2000 3000 ) ( 2500 * ) ;
+    - clk ( clkbuf_0_clk X ) ( g2 CLK ) + USE CLOCK ;
+END NETS
+END DESIGN

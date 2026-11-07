@@ -30,6 +30,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
 
 <nav id="toc"><b>Contents</b>
 <ol>
+  <li><a href="#update5">What's new (update 5)</a></li>
   <li><a href="#update4">What's new (update 4)</a></li>
   <li><a href="#planes">What you are looking at: the planes</a></li>
   <li><a href="#links">Provenance links and columns</a></li>
@@ -46,6 +47,42 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#limits">Known limits per plane</a></li>
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
+
+<h2 id="update5">What's new (update 5): ASIC planes (the silicon flow)</h2>
+<p>Heimdall now also shows the ASIC target: Odin III to OpenROAD to GDS. Seven OpenCores designs have a <code>silicon-</code> page beside the FPGA pages
+(the index has a <b>target</b> column). Provenance runs down to silicon: click an HDL line and the standard cells made from it light up on the die.</p>
+<ul>
+<li><b>Planes.</b> <code>hdl</code>, then <code>stdcell</code> (one object per mapped sky130 cell; the type is the library cell name; metrics area, drive, pins),
+<code>die</code> (every placed instance with its real position in micrometres: <code>x_um</code>, <code>y_um</code>, orientation, row) and <code>route</code> (one object per
+routed net: wire length, vias, layers, half-perimeter wire length). Links: <code>hdl</code> to <code>stdcell</code> (<code>cone</code>, medium), <code>stdcell</code> to
+<code>die</code> (<code>name</code>, exact), <code>die</code> to <code>route</code> (<code>pin</code>).</li>
+<li><b>The die is drawn in um.</b> Orange lines are the die and the core outline, grey lines the cell rows; y runs up the screen, as in a layout viewer.
+Hover or click a die object: its metrics show <code>x_um</code>, <code>y_um</code>, <code>row</code>. Click a die cell or a net to see its routed wires, drawn per metal
+layer on the die plane. Tap cells (the regular grid), clock-tree buffers (<code>cts_buffer</code>) and repair buffers are in the plane and are labelled by their
+<code>origin</code> (<code>physical:tap</code>, ...); they link to no HDL.</li>
+<li><b>Join confidence.</b> The <code>recover</code> step takes the cells extracted from the GDS back to the placed cells by cell type and location (no names).
+The die metric <code>recover_conf</code> is that join's confidence: 3 = high, -1 = not joined. The chain from the die back to a statement is as weak as its weakest
+link: <code>name</code> exact, <code>cone</code> medium.</li>
+<li><b>Anchors.</b> <code>placement</code> (the final place) and <code>global</code> (after global placement) are in um; the rainbow lines, bit squares and groups of update 4
+work on these planes unchanged. The metrics list offers only the metrics of the planes the bundle has.</li>
+<li><b>Not shown.</b> Fill cells (their count is in the manifest), an <code>ir</code> or <code>cell</code> plane (the silicon provenance links gates to HDL statements directly),
+and buses (the die cells have no bus names).</li>
+</ul>
+<p><b>Placement in the silicon flow.</b> The flow (<code>tools/silicon/openroad_flow.tcl</code>, OpenROAD, no Yosys,
+<code>sky130_fd_sc_hd</code>) places the cells in these steps. (1) <code>initialize_floorplan</code> sizes a square core so the cells fill 25 percent of it
+(utilisation 25, 6 um around the core); a design of one cell or a core below 16 um gets a fixed 30 um core, and the die grows when the pins need a longer edge or
+an edge falls within 0.17 um of a routing track. (2) <code>tapcell</code> puts a well-tap cell every 14 um on every row (fixed, never moved); <code>pdngen</code>
+builds the power grid. (3) <code>global_placement -density 0.5</code>, run twice around <code>place_pins</code> (first with <code>-skip_io</code>, then with the pins):
+this is OpenROAD's RePlAce, an analytic placer that minimises wirelength under an electrostatic density model (Nesterov-accelerated); cells may overlap and sit off
+the row grid afterwards. (4) <code>repair_design</code> resizes cells and inserts repair buffers. (5) <code>detailed_placement</code> (OpenDP) legalises the cells into
+rows and sites without overlap; <code>clock_tree_synthesis</code> adds clock buffers, <code>repair_timing -hold</code> adds hold buffers, each followed by another
+<code>detailed_placement</code>. (6) <code>global_route</code> (FastRoute) and <code>detailed_route</code> (TritonRoute), then fill cells.</p>
+<p>The <code>die</code> plane shows the <b>final legal placement</b>, read from the DEF written at the end (after clock tree, repair and routing; fill cells are left
+out, tap, clock and buffer cells are kept and labelled by their origin). The anchor <code>global</code> shows the same cells where global placement left them
+(from the flow's <code>s04_global_place.csv</code>; cells inserted later sit at their final place), and the metric <code>legal_shift_um</code> is the
+distance each cell moved to be legalised.</p>
+<div class="try"><b>Try this.</b> Open silicon-mmuart, drag over lines 187 to 190 in the pane, and press the focus button of the die plane. See the
+<a href="guide.html#asic">guide example 12</a>.</div>
 
 <h2 id="update4">What's new (update 4): rainbow lines, bit squares, reverse groups</h2>
 <ul>
@@ -83,6 +120,9 @@ The three graph planes are off at first (keys <kbd>s</kbd>, <kbd>c</kbd>, <kbd>d
 <tr><td><code>lut</code></td><td>nets, LUTs, flip-flops, hard blocks of the mapped netlist</td><td>Odin III step file <code>map</code> (the BLIF Odin III writes)</td></tr>
 <tr><td><code>clb</code></td><td>VPR top-level blocks: logic clusters, IO pads, memories</td><td>VPR packing (the <code>.net</code> file)</td></tr>
 <tr><td><code>placed</code></td><td>one object per atom, on the real grid tile of its cluster</td><td>VPR placement (the <code>.place</code> file) with Odin III step file <code>place</code></td></tr>
+<tr><td><code>stdcell</code></td><td>(ASIC) one object per mapped standard cell, type = library cell</td><td>Odin III step file <code>map</code> (<code>abc --gates</code>, <code>dfflibmap</code>)</td></tr>
+<tr><td><code>die</code></td><td>(ASIC) one object per placed instance at its position in um</td><td>OpenROAD DEF (<code>route.def</code>) with step file <code>place</code>; join confidence from <code>recover</code></td></tr>
+<tr><td><code>route</code></td><td>(ASIC) one object per routed net</td><td>OpenROAD DEF (the NETS section)</td></tr>
 </table>
 <figure><img src="images/o3viz-ch_intrinsics.png" alt="o3viz on VTR ch_intrinsics"><figcaption>The stack for the VTR benchmark ch_intrinsics.</figcaption></figure>
 <p>Planes that Odin III does not write yet (<code>ir</code>, <code>gates</code>, <code>ble</code>, <code>routed</code>) are not shown.</p>
@@ -181,6 +221,7 @@ objects linked below or above. Direct links only, one hop.</li>
 <table>
 <tr><th>Anchor</th><th>Layout</th></tr>
 <tr><td><code>placement</code></td><td>the real grid at the bottom; upper planes at the centroid of what they link to</td></tr>
+<tr><td><code>global</code></td><td>(ASIC) as <code>placement</code>, but the die cells where global placement left them, before legalisation</td></tr>
 <tr><td><code>ast</code></td><td>the HDL construct tree (root on top, one leaf per column); a LUT at its deepest construct, a cluster at the mean of its LUTs</td></tr>
 <tr><td><code>pipeline</code></td><td>x = register stage, one block per stage, atoms ordered by logic level</td></tr>
 <tr><td><code>level</code></td><td>x = logic level, one block per level, atoms ordered by worst slack (worst first)</td></tr>
