@@ -104,6 +104,10 @@ class Dataset:
         t = self.power.get("targets", {}).get(target)
         return bool(t) and "error" not in t
 
+    def has_line_power(self, target: str) -> bool:
+        """False when Bifrost gave no per-line power table for the target (the page says so)."""
+        return target == "fpga" or bool(self.power.get("by_line_asic"))
+
     def line_power(self, target: str) -> dict[tuple[str, int], float]:
         """Power per (file, line) in uW as Bifrost gave it (FPGA: model; ASIC: per instance)."""
         out: dict[tuple[str, int], float] = {}
@@ -181,6 +185,7 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
     planes = {p: _read(bundle, f"planes/{p}.json", parts) for p in order}
     links = _read(bundle, "links.json", parts)
     pwl = ds.line_power(target)
+    line_pw = ds.has_line_power(target)
     table = LineTable(ds.fpga_line if target == "fpga" else ds.asic_line, pwl)
     direct = {p for p in DIRECT[target] if p in planes and ptarget.get(p) == target}
     vals: dict[str, dict[str, list[Any]]] = {}
@@ -241,7 +246,12 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
                 if vals[q]["p1"][j] is not None:
                     ps.append(vals[q]["p1"][j])
                     ts.append(vals[q]["td"][j])
-                if target == "asic" and vals[q]["pw"][j] is not None and vals[q]["basis"][j] == 1:
+                if (
+                    target == "asic"
+                    and (line_pw or p != "hdl")
+                    and vals[q]["pw"][j] is not None
+                    and vals[q]["basis"][j] == 1
+                ):
                     wq[q].append(vals[q]["pw"][j])
             if ps:
                 v["p1"][i], v["td"][i] = sum(ps) / len(ps), sum(ts) / len(ts)
@@ -281,7 +291,9 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
         "tool": {k: t[k] for k in ("arch", "tech", "method", "pdk", "parasitics") if k in t},
         "warnings": t.get("warnings", []),
         "caveats": caveats(target),
-        "line_power": "model" if target == "fpga" else "per-instance",
+        "line_power": (
+            "model" if target == "fpga" else "per-instance" if line_pw else "not available"
+        ),
         "lines": lines,
         "coverage": cov,
         "planes": {p: vals[p] for p in order},
