@@ -123,6 +123,14 @@ class TestActivity(unittest.TestCase):
             (d / "power.json").write_text(json.dumps(pj), encoding="utf-8")
             self.assertTrue(activity.Dataset(d).has_line_power("asic"))
 
+    def test_bifrost_source_in_tool(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            b = write_bundle(Path(td) / "b")
+            d = write_data(Path(td) / "d")
+            (d / "meta.json").write_text(json.dumps({"bifrost": "wyrd 5e9d0361"}), encoding="utf-8")
+            out = activity.build(b, activity.Dataset(d), "fpga")
+        self.assertEqual(out["tool"]["bifrost"], "Bifrost III (wyrd 5e9d0361)")
+
     def test_first_span(self) -> None:
         self.assertEqual(activity.first_span([["x/a.v", "3.1-5.2"]]), ("a.v", 3, 5))
         self.assertIsNone(activity.first_span([]))
