@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "heimdall"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Heimdall III: 3D provenance viewer for Odin III flows (part of Yggdrasil III)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,6 +13,9 @@ dependencies = []
 
 [project.scripts]
 heimdall = "heimdall.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "heimdall.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["heimdall*"]

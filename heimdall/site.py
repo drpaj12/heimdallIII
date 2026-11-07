@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from heimdall import analytics, flows
+from heimdall import __version__, analytics, flows
 from heimdall.serve import WEB
 
 PART_BYTES = 40_000_000  # hard limit per file is 50 MB
@@ -140,9 +140,16 @@ def _viewer_page(text: str) -> str:
     )
 
 
+def version_label() -> str:
+    """The label of `heimdall.__version__` (the one place): v0.7 for 0.7.0, v0.7.1 for 0.7.1."""
+    v = __version__[:-2] if __version__.endswith(".0") else __version__
+    return f"v{v}"
+
+
 def _root_page(text: str) -> str:
     """help.html and guide.html live at the site root; their pictures are in _assets/images."""
-    return text.replace('src="images/', 'src="_assets/images/')
+    text = text.replace('src="images/', 'src="_assets/images/')
+    return text.replace("@@VERSION@@", version_label())
 
 
 _TRY = re.compile(r'<a class="tryit" href="@([^/"]+)/([^"]*)">(.*?)</a>', re.S)
@@ -229,7 +236,7 @@ th,td{{border-bottom:1px solid #ddd;padding:.35em .6em;text-align:left}}
 td.n{{text-align:right}} th{{background:#f3f3f3}}
 .nav{{background:#fff6e5;border-left:4px solid #ffb454;padding:.5em .8em}}
 </style></head><body>
-<h1>Heimdall III</h1>
+<h1>Heimdall III <span style="font-size:.5em;color:#888">{version_label()}</span></h1>
 <p>The watchman who sees all nine worlds. Each benchmark below is shown as a stack of planes,
 from the HDL down to the placed chip; click an object to see its column up to the HDL line.
 Rotate with the mouse, press <b>?</b> in a viewer for the help page.
@@ -346,8 +353,12 @@ def refresh_site(site: Path, note: str = "") -> int:
         guide_page((WEB / "guide.html").read_text(encoding="utf-8"), {p.name for p in pages}),
         encoding="utf-8",
     )
+    idx = site / "index.html"
+    text = idx.read_text(encoding="utf-8")
+    tag = f'<h1>Heimdall III <span style="font-size:.5em;color:#888">{version_label()}</span></h1>'
+    text = re.sub(r"<h1>Heimdall III(?: <span[^>]*>v[^<]*</span>)?</h1>", tag, text, count=1)
+    idx.write_text(text, encoding="utf-8")
     if note:
-        idx = site / "index.html"
         text = idx.read_text(encoding="utf-8")
         text = re.sub(r"<p class=\"dim\"><b>Update \d+</b>.*?</p>\n", "", text, flags=re.S)
         idx.write_text(

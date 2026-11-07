@@ -204,4 +204,12 @@ class TestRefresh(unittest.TestCase):
             self.assertIn("Update 6", idx)
             self.assertNotIn("Update 5", idx)
             self.assertTrue((site_dir / "_assets" / "analyticsview.js").is_file())
+            self.assertTrue((site_dir / "_assets" / "selcompare.js").is_file())
+            label = site.version_label()
+            self.assertIn(label, site.index_html([], "", "https://x/"))
+            self.assertRegex(label, r"^v\d+\.\d+")
+            for name in ("help.html", "guide.html"):
+                body = (site_dir / name).read_text(encoding="utf-8")
+                self.assertIn(label, body)
+                self.assertNotIn("@@VERSION@@", body)
             self.assertIn("update6", (site_dir / "help.html").read_text(encoding="utf-8"))

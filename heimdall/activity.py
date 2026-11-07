@@ -1,4 +1,4 @@
-"""Switching-activity overlay (update 7): Bifrost III power data joined to the planes of a bundle.
+"""Switching-activity overlay (v0.7): Bifrost III power data joined to the planes of a bundle.
 
 Input is a data directory with one sub-directory per design (written by `wyrd power run` plus the
 extras listed in docs/specs/2026-11-05-heimdall-design.md section 12):

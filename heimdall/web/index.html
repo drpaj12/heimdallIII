@@ -102,6 +102,13 @@
       <select id="ansp"></select><select id="ansm"><option value="u">undirected</option><option value="d">directed</option></select>
       <select id="ansa"></select><select id="ansb"></select>
       <div id="ansres"></div>
+      <h2>Compare any two selections</h2>
+      <div class="sub">Pick selection A and B: the current selection (HDL lines, objects, paths), a saved snapshot, a group or a cluster. Computed here in the browser from the objects' GDVs with the metric code of Odin III (orbit totals and GDD).</div>
+      <select id="scp"></select>
+      <select id="sca"></select><select id="scb"></select>
+      <button id="scsnap">save current selection as snapshot</button>
+      <button id="sccmp">compare</button>
+      <div id="scres"></div>
       <h2>Graphlet types</h2>
       <select id="gtp"></select><select id="gtm"><option value="u">undirected G0-G29</option><option value="d">directed G0-G39</option></select>
       <div id="gttab" style="max-height:220px;overflow:auto"></div>

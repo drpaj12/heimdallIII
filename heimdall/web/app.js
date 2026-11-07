@@ -10,6 +10,7 @@ import { barChart, drawMatrix, drawShape, cellAt } from "./circuitdraw.js";
 import { GRAPHS, KEYS as GKEYS, isGraph, khopEdges, nodeEdges, edgeClass, propagate } from "./graphview.js";
 import { parseQuery } from "./urlstate.js";
 import * as av from "./analyticsview.js";
+import * as sc from "./selcompare.js";
 import { rainbow, groupColour, lineOwners, groupOwners, newGroups, addGroup, addToCurrent, clearGroups, lineMap, barGradient, bitStripes, pieSlices } from "./rainbow.js";
 import { parseSpan, innermost, hdlCovering, reachDown, cone as coneOf, chainFor, tiers as tiersOf, mixOf, meanMix, mixRGB, mixText, busHue, bitLight } from "./select.js";
 
@@ -76,7 +77,7 @@ export async function loadBundle() {
     S.lutByName = new Map(lut.ids.map((id, i) => [id.slice(id.indexOf("/") + 1), i]));
   }
   if (S.man.activity) await loadActivity();
-  if (S.man.analytics) S.an = { index: await getJson("analytics/index.json"), data: {}, cur: null, rank: {}, inst: {} };
+  if (S.man.analytics) S.an = { index: await getJson("analytics/index.json"), data: {}, cur: null, rank: {}, inst: {}, snaps: [], idx: {} };
   await loadAnchor(S.man.anchors.includes("placement") ? "placement" : S.man.anchors[0]);
 }
 
@@ -1892,6 +1893,65 @@ function showAnSim() {
   $("ansres").innerHTML = `<table><tr><td>GDD agreement</td><td>${r.gdd.toFixed(4)}</td></tr><tr><td>cosine of log(1 + orbit totals)</td><td>${r.cosine.toFixed(4)}</td></tr><tr><td>nodes</td><td>${r.na} and ${r.nb}</td></tr></table>` +
     `<div class="sub">${esc(sig.mode)}; Odin III graphlets --compare on the signatures of the two clusters (orbit totals and GDD, counted on each cluster's own subgraph).</div>`;
 }
+// ---- compare any two selections (browser-side; metric code ported from Odin III sig.c, see selcompare.js) ----
+const SC_CLUSTER_CAP = 64;
+function scGroupIds(k) {
+  const g = S.groups.groups[k], out = new Set();
+  for (const id of g?.ids ?? []) { out.add(id); for (const x of closure(id, "up")) out.add(x); for (const x of closure(id, "down")) out.add(x); }
+  return out;
+}
+// ids (all planes) of a source: "cur", "snap:i", "grp:k" or "cl:c" (cluster c of the shown clustering on the chosen plane)
+function scIds(src) {
+  const [kind, v] = src.split(":");
+  if (kind === "cur") return highlighted();
+  if (kind === "snap") return S.an.snaps[+v]?.ids ?? new Set();
+  if (kind === "grp") return scGroupIds(+v);
+  if (kind === "cl") { const p = $("scp").value, lab = S.an.cur?.labels[p]; return new Set(lab ? av.members(S.planes[p].ids, lab, +v) : []); }
+  return new Set();
+}
+function scOptions() {
+  const o = [`<option value="cur">current selection (${highlighted().size})</option>`];
+  S.an.snaps.forEach((s, i) => o.push(`<option value="snap:${i}">${esc(s.name)}</option>`));
+  S.groups.groups.forEach((g, k) => o.push(`<option value="grp:${k}">group ${k + 1} (${g.ids.length} clicked)</option>`));
+  const p = $("scp").value, cur = S.an.cur;
+  if (cur?.labels[p]) {
+    const sz = cur.sizes[p], order = sz.map((_, c) => c).sort((a, b) => sz[b] - sz[a] || a - b);
+    order.slice(0, SC_CLUSTER_CAP).forEach((c) => o.push(`<option value="cl:${c}">cluster ${c} of ${esc(cur.text)} (${sz[c]})</option>`));
+  }
+  return o.join("");
+}
+function scFill() {
+  for (const id of ["sca", "scb"]) { const el = $(id), v = el.value; el.innerHTML = scOptions(); if ([...el.options].some((x) => x.value === v)) el.value = v; }
+}
+function scSnap() {
+  const ids = new Set(highlighted());
+  S.an.snaps.push({ name: `snapshot ${S.an.snaps.length + 1} (${ids.size} objects)`, ids });
+  scFill();
+  $("sca").value = `snap:${S.an.snaps.length - 1}`;
+}
+async function scIndex(p) {
+  const d = await anData(p);
+  return (S.an.idx[p] ??= new Map(d.ids.map((id, i) => [id, i])));
+}
+async function scCompare() {
+  const p = $("scp").value, d = await anData(p), idx = await scIndex(p), out = {}, cnt = {};
+  const modes = [["u", "undirected"], ["d", "directed"]];
+  for (const [w, id] of [["A", "sca"], ["B", "scb"]]) {
+    const all = scIds($(id).value), onPlane = [...all].filter((x) => S.byId.get(x)?.plane === p);
+    out[w] = {};
+    for (const [m] of modes) out[w][m] = sc.selectionSignature(d[`gdv_${m}`] ?? null, idx, onPlane, S.an.index.modes[m].orbits);
+    cnt[w] = { all: all.size, plane: onPlane.length, other: all.size - onPlane.length };
+  }
+  const row = (w) => `<tr><td>${w}</td><td>${cnt[w].all}</td><td>${cnt[w].plane}</td><td>${out[w].u.withGdv}</td><td>${out[w].u.without}</td><td>${cnt[w].other}</td></tr>`;
+  const mrows = modes.map(([m, label]) => {
+    const r = sc.compareSignatures(out.A[m].sig, out.B[m].sig);
+    return `<tr><td>${label}</td><td>${r.gdd.toFixed(4)}</td><td>${r.cosine.toFixed(4)}</td></tr>`;
+  }).join("");
+  $("scres").innerHTML = `<table><tr><td></td><td>all</td><td>${esc(p)}</td><td>GDV</td><td>no GDV</td><td>other</td></tr>${row("A")}${row("B")}</table>` +
+    `<table><tr><td>mode</td><td>GDD</td><td>cosine</td></tr>${mrows}</table>` +
+    `<div class="sub">Columns: objects of the selection (all planes), on plane ${esc(p)}, with a GDV (signed), without a GDV (counted, not signed), on other planes (not signed). GDD = GDD agreement, cosine = cosine of log(1 + orbit totals), for 73 (undirected) and 129 (directed) orbits. Signed on plane ${esc(p)}: orbit totals and GDD of the members' GDVs (counted by Odin III on the whole plane graph at export; a cluster here is not recounted on its own subgraph). Objects without a GDV (not on a plane with analytics, or outside its graph) are counted above and left out. Other-plane objects are not signed. The metrics are the code of Odin III graphlets --compare, ported to JS and pinned to it by tests.</div>`;
+  return { out, cnt };
+}
 // graphlet types of a plane and mode, rare first; a click shows the instances (when the exporter wrote them)
 function fillAnTypes() {
   const p = $("gtp").value, m = $("gtm").value, rows = S.an.index.planes[p]?.graphlet_types?.[m] ?? [];
@@ -1931,6 +1991,13 @@ function buildAnalyticsUi() {
   for (const id of ["ansp", "ansm"]) $(id).addEventListener("change", fillAnSig);
   for (const id of ["ansa", "ansb"]) $(id).addEventListener("change", showAnSim);
   fillAnSig();
+  $("scp").innerHTML = ps.map((p) => `<option>${p}</option>`).join("");
+  scFill();
+  if (ps.length > 1) $("scb").selectedIndex = Math.min(1, $("scb").options.length - 1);
+  $("scsnap").addEventListener("click", scSnap);
+  $("sccmp").addEventListener("click", scCompare);
+  $("scp").addEventListener("change", () => { scFill(); scCompare(); });
+  for (const id of ["sca", "scb"]) { $(id).addEventListener("focus", scFill); $(id).addEventListener("change", scCompare); }
   $("gtp").innerHTML = ps.map((p) => `<option>${p}</option>`).join("");
   for (const id of ["gtp", "gtm"]) $(id).addEventListener("change", fillAnTypes);
   fillAnTypes();
@@ -1941,7 +2008,7 @@ function buildAnalyticsUi() {
   $("ansilh").innerHTML = sil.map(esc).join("<br>");
 }
 
-// ---- switching activity (Bifrost III power data joined to the planes; update 7) ----
+// ---- switching activity (Bifrost III power data joined to the planes; v0.7) ----
 async function loadActivity() {
   S.act = { data: await getJson("activity/activity.json"), exact: false };
   injectActivity();
@@ -2162,7 +2229,7 @@ async function main() {
   loop();
   try { await applyUrl(parseQuery(location.search)); } catch (e) { console.error("deep link:", e); }
   document.body.dataset.ready = "1";
-  window.__o3viz = { S, groupClick, anOrbitHeat, anPickClustering, anInstances, anClusterGroup, fillAnList, setBits: (on) => { S.bits = on; $("bits").checked = on; refreshAll(); }, selectEdge, showGraph, scoapColour, drawGraphs, khopEdges, changeAnchor, selectCell, showCircuit, characterize, setCluster: (k) => { $("csrc").value = k; $("csrc").dispatchEvent(new Event("change")); }, setCompare: (on, k) => { $("ccompare").checked = on; if (k) $("csrc2").value = k; showCircuit(); }, togglePanel, panelState: () => ({ ...panels }), select, selectBus, tierCounts, setFF: (m) => { S.ff = m; $("ffmode").value = m; refreshAll(); }, selectLines, planeCounts, coverage, focusPlane, soloPlane, showPath, updateCone, markLines, setCone: async (dir, depth) => { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = dir; $("conedepth").value = String(depth); await updateCone(); markLines(); }, marksOf: () => Object.fromEntries([...marks].map(([f, m]) => [f, Object.fromEntries(m)])), cam: () => ({ target: controls.target.toArray(), pos: camera.position.toArray() }), wheelAt: (x, y, dy) => wheelZoom({ preventDefault() {}, clientX: x, clientY: y, deltaY: dy, deltaMode: 0 }), discover, setView, setGroupMode, discoverMatrix, brushAll: (p) => { S.brush = new Set(S.planes[p].ids.slice(0, 30)); S.core = new Set(); refreshAll(); },
+  window.__o3viz = { S, scCompare, scSnap, scFill, groupClick, anOrbitHeat, anPickClustering, anInstances, anClusterGroup, fillAnList, setBits: (on) => { S.bits = on; $("bits").checked = on; refreshAll(); }, selectEdge, showGraph, scoapColour, drawGraphs, khopEdges, changeAnchor, selectCell, showCircuit, characterize, setCluster: (k) => { $("csrc").value = k; $("csrc").dispatchEvent(new Event("change")); }, setCompare: (on, k) => { $("ccompare").checked = on; if (k) $("csrc2").value = k; showCircuit(); }, togglePanel, panelState: () => ({ ...panels }), select, selectBus, tierCounts, setFF: (m) => { S.ff = m; $("ffmode").value = m; refreshAll(); }, selectLines, planeCounts, coverage, focusPlane, soloPlane, showPath, updateCone, markLines, setCone: async (dir, depth) => { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = dir; $("conedepth").value = String(depth); await updateCone(); markLines(); }, marksOf: () => Object.fromEntries([...marks].map(([f, m]) => [f, Object.fromEntries(m)])), cam: () => ({ target: controls.target.toArray(), pos: camera.position.toArray() }), wheelAt: (x, y, dy) => wheelZoom({ preventDefault() {}, clientX: x, clientY: y, deltaY: dy, deltaMode: 0 }), discover, setView, setGroupMode, discoverMatrix, brushAll: (p) => { S.brush = new Set(S.planes[p].ids.slice(0, 30)); S.core = new Set(); refreshAll(); },
     setEdges: async (m, h) => { S.edgeMode = m; S.hops = h ?? 1; await ensureEdges(); drawEdges(); }, setMorph: (a, b, m) => { S.morph = { a, b, m }; refreshAll(); }, addExpr, addAgg, setHeight: (n) => { S.height = n; $("height").value = n; refreshAll(); },
     setAnchor: async (n) => { $("anchor").value = n; $("anchor").dispatchEvent(new Event("change")); }, setColour,
     setSize: (n) => { S.size = n; $("size").value = n; refreshAll(); }, stop: () => { controls.autoRotate = false; } };

@@ -11,6 +11,20 @@ planes and shows the HDL lines behind it. Design: `docs/specs/2026-11-03-o3viz-d
 
 ![anchors, expression metric](images/o3viz-anchors.png)
 
+## Versions
+
+The version is `heimdall.__version__` (one place; the help page, the guide and the site index read it).
+
+| version | what | date |
+|---|---|---|
+| v0.1 to v0.3 | viewer milestones M3 to M7 and the static site (earlier "updates 1 to 3" had no separate heading) | 2026-11-05 |
+| v0.4 (update 4) | rainbow lines, bit squares, reverse groups | 2026-11-06 |
+| v0.5 (update 5) | ASIC planes (silicon flow) | 2026-11-06 |
+| v0.6 (update 6) | graph analytics: signatures, clusterings, graphlet types | 2026-11-06 |
+| v0.6.1 | affinity propagation fix | 2026-11-06 |
+| v0.7 | switching-activity overlay (Bifrost III power) and compare on any selection | 2026-11-07 |
+| v0.8 (planned) | graphlet instance view | |
+
 ## Make a bundle
 
 Run the benchmark through the Odin III flow with provenance and keep VPR's files, then add the placement
@@ -472,3 +486,15 @@ panel is hidden.
   similarity matrices. `analytics/<plane>.json`: `ids`, `gdv_u`, `gdv_d`, `cl` (labels per clustering key).
   `analytics/partition.<plane>.<feature>.<alg>.tsv` are Mimir partition imports (object id, cluster id).
 - Timings are printed by `heimdall analytics` and not stored (bundles stay byte-identical on rebuild).
+
+## v0.7: switching activity, and compare on any selection
+
+Switching activity: see the help page ("What's new (v0.7)") and the design spec section 12.
+
+Compare on any selection (spec section 8.1): in Graph analytics, "Compare any two selections". Pick a plane, then A and B
+from the current selection (HDL lines, objects, paths), snapshots saved with the button, groups, or the clusters of the shown
+clustering. The browser signs each selection (orbit totals and GDD of the members' graphlet degree vectors) and shows GDD
+agreement and the cosine of log(1 + orbit totals) for the undirected and the directed graphlets, with the member counts and the
+objects that have no GDV. `web/selcompare.js` is a port of Odin III's `src/graph/sig.c`; `tests/js/selcompare.test.mjs` pins it to
+Odin III's values in `tests/data/selcompare/fixture.json` (made by `PYTHONPATH=. python3 tools/selcompare_fixture.py`, which runs
+Odin III; Odin III prints the metrics with 6 decimals, so the match is to 5e-7).

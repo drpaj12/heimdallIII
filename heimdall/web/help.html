@@ -24,13 +24,13 @@
 </head>
 <body>
 <main>
-<h1>Heimdall III help</h1>
+<h1>Heimdall III help <span class="dim" style="font-size:.6em">@@VERSION@@</span></h1>
 <p class="dim">What you are looking at in the 3D provenance viewer, and what each control does. Press <kbd>?</kbd> in the viewer to open it.
 For worked examples with screenshots, see <a href="guide.html"><b>How to use Heimdall</b></a>.</p>
 
 <nav id="toc"><b>Contents</b>
 <ol>
-  <li><a href="#update7">What's new (update 7)</a></li>
+  <li><a href="#update7">What's new (v0.7)</a></li>
   <li><a href="#update6">What's new (update 6)</a></li>
   <li><a href="#update5">What's new (update 5)</a></li>
   <li><a href="#update4">What's new (update 4)</a></li>
@@ -50,7 +50,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
 
-<h2 id="update7">What's new (update 7): switching activity (Bifrost III power)</h2>
+<h2 id="update7">What's new (v0.7): switching activity (Bifrost III power)</h2>
 <p>The left-hand section <b>Switching activity</b> shows what Bifrost III measured when it ran the design's own testbench. Heimdall draws the numbers as given; it does not
 recompute activity or power. Three designs have data, on both their FPGA and their silicon pages: mmuart, verilog_cordic_core and wb_lcd. Every other page says that it has none.</p>
 <ul>
@@ -66,6 +66,7 @@ the cells, die instances and routed nets are matched by name.</li>
 <li><b>Per HDL line.</b> HDL objects take the roll-up of the lines they span; the table lists the lines by power, then by activity. Click a row to select that line. FPGA power per line is a
 model (VPR reports power per block type, so Bifrost spreads the dynamic non-clock power over nets by activity times fanout plus one); silicon power per line is the sum over the instances
 that come from the line (exact). Cells added by the flow (tap cells, clock buffers) have no line.</li>
+<li><b>Compare any two selections.</b> In <b>Graph analytics</b>, <i>Compare any two selections</i> signs two selections of one plane and gives GDD agreement and the cosine of log(1 + orbit totals), for the undirected and the directed graphlets. A selection can be the current selection (HDL lines, objects, paths), a snapshot you saved with the button, a group, or a cluster. It runs in the browser; the metric code is Odin III's, ported to JavaScript and pinned to Odin III by tests. The panel shows how many objects each selection has, how many are on the chosen plane, how many have no graphlet data (counted, not signed) and how many are on other planes. Members are signed with their counts on the whole plane graph, so a cluster here can differ a little from the cluster signatures above, which count each cluster on its own subgraph.</li>
 <li><b>Limits.</b> Glitch power is not counted. Activity is that of one short testbench. Clock power on silicon is the clock-tree cells only, so it is a lower bound. The FPGA planes have
 no per-net or per-cell power, only the per-line model; the silicon planes have power per instance.</li>
 </ul>
