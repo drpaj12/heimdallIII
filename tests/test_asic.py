@@ -190,3 +190,27 @@ class TestDispatchAndSite(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNetEdges(unittest.TestCase):
+    def test_driver_from_lef_direction_and_name_fallback(self) -> None:
+        df = asic.Def(
+            comps=[
+                asic.Comp("u1", "and2", 0, 0, "N", "PLACED"),
+                asic.Comp("u2", "inv", 0, 0, "N", "PLACED"),
+                asic.Comp("u3", "inv", 0, 0, "N", "PLACED"),
+            ],
+            nets=[
+                asic.Net("n1", [("u1", "X"), ("u2", "A"), ("u3", "A"), ("PIN", "in")]),
+                asic.Net("n2", [("u2", "Y"), ("u3", "B")]),
+            ],
+        )
+        macros = {
+            "and2": asic.Macro(outs={"X"}),
+            "inv": asic.Macro(outs={"Y"}),
+        }
+        names = {"u1", "u2", "u3"}
+        got = asic.net_edges(df, macros, names)
+        self.assertEqual(sorted(got), [("u1", "u2"), ("u1", "u3"), ("u2", "u3")])
+        # no LEF: output pins are recognised by name (X, Y, Q ...)
+        self.assertEqual(sorted(asic.net_edges(df, {}, names)), sorted(got))

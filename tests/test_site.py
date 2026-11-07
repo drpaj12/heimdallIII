@@ -184,3 +184,24 @@ class TestBuild(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRefresh(unittest.TestCase):
+    def test_refresh_rewrites_pages_and_note(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            site_dir = Path(td)
+            page = site_dir / "s-d"
+            (page / "bundle").mkdir(parents=True)
+            (page / "bundle" / "manifest.json").write_text("{}", encoding="utf-8")
+            (page / "index.html").write_text("old", encoding="utf-8")
+            (site_dir / "index.html").write_text(
+                '<p class="dim"><b>Update 5</b>: x</p>\n<p class="nav">n</p>', encoding="utf-8"
+            )
+            n = site.refresh_site(site_dir, '<p class="dim"><b>Update 6</b>: y</p>')
+            self.assertEqual(n, 1)
+            self.assertIn("../_assets/app.js", (page / "index.html").read_text(encoding="utf-8"))
+            idx = (site_dir / "index.html").read_text(encoding="utf-8")
+            self.assertIn("Update 6", idx)
+            self.assertNotIn("Update 5", idx)
+            self.assertTrue((site_dir / "_assets" / "analyticsview.js").is_file())
+            self.assertIn("update6", (site_dir / "help.html").read_text(encoding="utf-8"))
