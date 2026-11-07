@@ -10,8 +10,9 @@ from typing import Any
 Vec = Sequence[float]
 SEED = 20261106
 KS = (2, 4, 8, 16, 32)
-AP_CAP = 400
-SIL_CAP = 1500
+AP_CAP = 200
+SIL_CAP = 400
+FIT_CAP = 1500
 
 
 def sqd(a: Vec, b: Vec) -> float:
@@ -20,8 +21,8 @@ def sqd(a: Vec, b: Vec) -> float:
 
 def kmeans(
     pts: Sequence[Vec], weights: Sequence[float], k: int, seed: int = SEED, iters: int = 60
-) -> list[int]:
-    """Weighted Lloyd k-means with k-means++ start. Returns a label per point; k <= len(pts)."""
+) -> tuple[list[int], list[list[float]]]:
+    """Weighted Lloyd k-means with k-means++ start. Returns (labels, centroids); k <= len(pts)."""
     n = len(pts)
     rnd = random.Random(seed + k)
     first = rnd.randrange(n)
@@ -42,12 +43,12 @@ def kmeans(
         cent.append(list(pts[pick]))
         d2 = [min(d, sqd(p, cent[-1])) for d, p in zip(d2, pts, strict=True)]
     labels = [0] * n
-    for _ in range(iters):
+    for it in range(iters):
         changed = False
         for i, p in enumerate(pts):
             best = min(range(len(cent)), key=lambda c: (sqd(p, cent[c]), c))
-            if best != labels[i] or _ == 0:
-                changed = changed or best != labels[i]
+            if best != labels[i]:
+                changed = True
                 labels[i] = best
         dim = len(pts[0])
         sums = [[0.0] * dim for _ in cent]
@@ -60,9 +61,9 @@ def kmeans(
         for c in range(len(cent)):
             if wsum[c] > 0:
                 cent[c] = [v / wsum[c] for v in sums[c]]
-        if not changed and _ > 0:
+        if not changed and it > 0:
             break
-    return _compact(labels)
+    return labels, cent
 
 
 def _compact(labels: Sequence[int]) -> list[int]:
@@ -72,7 +73,8 @@ def _compact(labels: Sequence[int]) -> list[int]:
 
 
 def silhouette(pts: Sequence[Vec], weights: Sequence[float], labels: Sequence[int]) -> float:
-    """Mean silhouette over (a sample of) the points, weighted by multiplicity. -1 if < 2 clusters."""
+    """Mean silhouette over (a sample of) the points, weighted by multiplicity. -1 if < 2
+    clusters."""
     ks = sorted(set(labels))
     if len(ks) < 2:
         return -1.0
@@ -88,7 +90,9 @@ def silhouette(pts: Sequence[Vec], weights: Sequence[float], labels: Sequence[in
         for k, mem in members.items():
             tot = sum(weights[j] for j in mem if j != i)
             if tot > 0:
-                mean[k] = sum(math.sqrt(sqd(pts[i], pts[j])) * weights[j] for j in mem if j != i) / tot
+                mean[k] = (
+                    sum(math.sqrt(sqd(pts[i], pts[j])) * weights[j] for j in mem if j != i) / tot
+                )
         own = labels[i]
         if own not in mean:
             s = 0.0  # a singleton scores 0
@@ -111,8 +115,10 @@ def affinity(
     iters: int = 200,
     stable: int = 15,
 ) -> list[int]:
-    """Affinity propagation (Frey and Dueck 2007): similarity = -squared distance, preference = median
-    similarity. The points are distinct vectors; `weights` (multiplicity) is accepted for the caller's
+    """Affinity propagation (Frey and Dueck 2007): similarity = -squared distance, preference =
+    median
+    similarity. The points are distinct vectors; `weights` (multiplicity) is accepted for the
+    caller's
     ordering and does not enter the messages. Returns the cluster number per point."""
     n = len(pts)
     if n == 1:
@@ -139,10 +145,7 @@ def affinity(
             pos = [max(0.0, r[i][k]) for i in range(n)]
             total = sum(pos) - pos[k] + r[k][k]
             for i in range(n):
-                if i == k:
-                    new = total - r[k][k]
-                else:
-                    new = min(0.0, total - pos[i])
+                new = total - r[k][k] if i == k else min(0.0, total - pos[i])
                 a[i][k] = damping * a[i][k] + (1 - damping) * new
         ex = [k for k in range(n) if a[k][k] + r[k][k] > 0]
         if ex == last and ex:
@@ -179,15 +182,28 @@ def distinct(rows: Sequence[Vec]) -> tuple[list[Vec], list[float], list[int]]:
     return pts, cnt, of
 
 
+def fit_assign(pts: Sequence[Vec], cnt: Sequence[float], k: int) -> list[int]:
+    """k-means labels for all points; above FIT_CAP distinct points the centroids are fitted on a
+    fixed
+    random sample and every point joins its nearest centroid. Labels are numbered by first
+    appearance."""
+    if len(pts) <= FIT_CAP:
+        return _compact(kmeans(pts, cnt, k)[0])
+    idx = sorted(random.Random(SEED).sample(range(len(pts)), FIT_CAP))
+    _, cent = kmeans([pts[i] for i in idx], [cnt[i] for i in idx], k)
+    return _compact([min(range(len(cent)), key=lambda c: (sqd(p, cent[c]), c)) for p in pts])
+
+
 def run_kmeans(rows: Sequence[Vec]) -> dict[str, Any]:
-    """k-means for every k in KS (capped by the number of distinct vectors); default = best silhouette."""
+    """k-means for every k in KS (capped by the number of distinct vectors); default = best
+    silhouette."""
     pts, cnt, of = distinct(rows)
     runs: list[dict[str, Any]] = []
     sils: list[float] = []
     for k in KS:
         if k > len(pts):
             continue
-        lab = kmeans(pts, cnt, k)
+        lab = fit_assign(pts, cnt, k)
         sil = round(silhouette(pts, cnt, lab), 4)
         sils.append(sil)
         runs.append({"k": k, "silhouette": sil, "labels": [lab[j] for j in of]})
@@ -200,7 +216,11 @@ def run_affinity(rows: Sequence[Vec]) -> dict[str, Any]:
     nearest exemplar of the clustered ones)."""
     pts, cnt, of = distinct(rows)
     capped = len(pts) > AP_CAP
-    order = sorted(range(len(pts)), key=lambda j: (-cnt[j], j))[:AP_CAP] if capped else list(range(len(pts)))
+    order = (
+        sorted(range(len(pts)), key=lambda j: (-cnt[j], j))[:AP_CAP]
+        if capped
+        else list(range(len(pts)))
+    )
     sub = [pts[j] for j in order]
     sub_lab = affinity(sub, [cnt[j] for j in order])
     lab = [-1] * len(pts)

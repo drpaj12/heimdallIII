@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from heimdall import flows
+from heimdall import analytics, flows
 from heimdall.serve import WEB
 
 PART_BYTES = 40_000_000  # hard limit per file is 50 MB
@@ -171,11 +171,14 @@ def copy_assets(out: Path) -> None:
     )
 
 
-def build_one(spec: Spec, out: Path, work: Path) -> dict[str, Any]:
+def build_one(
+    spec: Spec, out: Path, work: Path, bridge: analytics.Bridge | None = None
+) -> dict[str, Any]:
     raw = work / spec.slug
     man = flows.export_flow(
         spec.flow, raw, f"{spec.suite}:{spec.design}", list(spec.src), lef=spec.lef
     )
+    analytics.analyse_bundle(raw, bridge)
     bench = out / spec.slug
     bench.mkdir(parents=True, exist_ok=True)
     pack_bundle(raw, bench / "bundle")
@@ -290,6 +293,7 @@ def build_site(
     catalogue: str = DEFAULT_CATALOGUE,
     extend: Path | None = None,
     note: str = "",
+    analyse: bool = True,
 ) -> list[dict[str, Any]]:
     """Build the whole site into `out`; benchmarks are exported one at a time. With `extend` (the
     directory of an earlier site) that site is copied first, the specs are added as new pages and
@@ -301,9 +305,10 @@ def build_site(
     out.mkdir(parents=True, exist_ok=True)
     copy_assets(out)
     rows: list[dict[str, Any]] = []
+    bridge = analytics.find_bridge() if analyse else None
     with tempfile.TemporaryDirectory(prefix="heimdall-site-") as tmp:
         for spec in specs:
-            rows.append(build_one(spec, out, Path(tmp)))
+            rows.append(build_one(spec, out, Path(tmp), bridge))
     rows.sort(key=lambda r: (r["suite"], r["luts"], r["design"]))
     if extend is not None:
         old = (extend / "index.html").read_text(encoding="utf-8")

@@ -302,6 +302,7 @@ class Macro:
     w: float = 0.0
     h: float = 0.0
     pins: int = 0
+    outs: set[str] = field(default_factory=set)  # output pin names (LEF DIRECTION OUTPUT)
 
 
 def read_global(path: Path) -> dict[str, tuple[int, int]]:
@@ -324,6 +325,7 @@ def read_lef(path: Path | None) -> dict[str, Macro]:
         return out
     cur: Macro | None = None
     pin = False
+    pin_name = ""
     for ln in path.read_text(encoding="utf-8", errors="replace").splitlines():
         t = ln.split()
         if not t:
@@ -332,14 +334,39 @@ def read_lef(path: Path | None) -> dict[str, Macro]:
             cur = out.setdefault(t[1], Macro())
         elif cur is not None and t[0] == "SIZE" and len(t) >= 4:
             cur.w, cur.h = float(t[1]), float(t[3])
-        elif cur is not None and t[0] == "PIN":
+        elif cur is not None and t[0] == "PIN" and len(t) >= 2:
             pin = True
+            pin_name = t[1]
+        elif cur is not None and t[0] == "DIRECTION" and len(t) >= 2 and t[1] == "OUTPUT":
+            cur.outs.add(pin_name)
         elif cur is not None and pin and t[0] == "USE":
             if t[1] == "SIGNAL":
                 cur.pins += 1
             pin = False
         elif t[0] == "END" and len(t) == 2 and t[1] in out:
             cur, pin = None, False
+    return out
+
+
+OUT_PINS = {"X", "Y", "Q", "Q_N", "SUM", "COUT", "HI", "LO", "GCLK", "Z", "ZN"}
+
+
+def net_edges(df: Def, macros: dict[str, Macro], names: set[str]) -> list[tuple[str, str]]:
+    """(driver instance, sink instance) of every DEF net, one pair per distinct sink. A driver pin
+    is an
+    output pin of the LEF macro (else a pin named like a sky130 output); PIN (ports) are skipped."""
+    master = {c.name: c.master for c in df.comps}
+    out: list[tuple[str, str]] = []
+    for net in df.nets:
+        drv: list[str] = []
+        snk: list[str] = []
+        for inst, pin in net.pins:
+            if inst not in names or inst not in master:
+                continue
+            m = macros.get(master[inst])
+            is_out = pin in m.outs if m is not None and m.outs else pin in OUT_PINS
+            (drv if is_out else snk).append(inst)
+        out.extend((d, s) for d in drv for s in sorted(set(snk)) if s != d)
     return out
 
 
@@ -671,6 +698,7 @@ def build_asic_planes(
         "route_pos": rpos,
         "gpos": gpos,
         "members": members,
+        "net_edges": net_edges(df, macros, {c.name for c in df.comps if f"die:{c.name}" in pos}),
         "macros": len(macros),
         "recovered": sum(1 for c in conf.values() if c >= 0),
         "unjoined": sum(1 for c in conf.values() if c < 0),
@@ -699,6 +727,16 @@ def _route_file(meta: dict[str, Any]) -> tuple[dict[str, Any], int]:
             segs.append([layers.index(layer), *flat])
         nets[rid] = segs
     return {"unit": "um", "layers": layers, "nets": nets}, dropped
+
+
+def write_net_edges(bundle: Path, flow: Path, lef: Path | None = None) -> int:
+    """Write bundle/edges/net.json from the DEF of a silicon run (for pages built before it
+    existed)."""
+    df = read_def(find_def(flow))
+    macros = read_lef(lef or default_lef())
+    pairs = net_edges(df, macros, {c.name for c in df.comps})
+    export.write_json(bundle / "edges" / "net.json", [list(e) for e in pairs])
+    return len(pairs)
 
 
 def export_asic(
@@ -758,6 +796,7 @@ def export_asic(
         export.write_json(out / "planes" / f"{p}.json", export.plane_json(planes[p]))
     export.write_json(out / "links.json", export.compact_links(order, planes, kept))
     export.write_json(out / "edges" / "lut.json", [])
+    export.write_json(out / "edges" / "net.json", [list(e) for e in meta["net_edges"]])
     notes = [
         *meta["notes"],
         f"asic target: {meta['fill_cells']} fill and decap cells are not planes",

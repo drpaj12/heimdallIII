@@ -6,8 +6,9 @@ from heimdall import cluster
 class TestCluster(unittest.TestCase):
     def test_kmeans_two_blobs(self) -> None:
         pts = [(0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (10.0, 10.0), (10.0, 11.0), (11.0, 10.0)]
-        lab = cluster.kmeans(pts, [1.0] * 6, 2)
-        self.assertEqual(lab, [0, 0, 0, 1, 1, 1])
+        lab, cent = cluster.kmeans(pts, [1.0] * 6, 2)
+        self.assertEqual(len(cent), 2)
+        self.assertEqual(cluster._compact(lab), [0, 0, 0, 1, 1, 1])
 
     def test_silhouette_good_vs_bad(self) -> None:
         pts = [(0.0,), (1.0,), (10.0,), (11.0,)]
@@ -25,7 +26,6 @@ class TestCluster(unittest.TestCase):
         runs = out["runs"]
         self.assertEqual([r["k"] for r in runs], [2, 4])
         self.assertEqual(runs[out["default"]]["k"], 2)
-
 
     def test_affinity_blobs(self) -> None:
         pts = [(0.0, 0.0), (0.2, 0.0), (0.0, 0.2), (9.0, 9.0), (9.2, 9.0), (9.0, 9.2)]

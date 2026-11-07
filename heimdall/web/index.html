@@ -79,6 +79,27 @@
     <div class="sub" id="unit"></div></div>
     <div id="buspanel" style="display:none"><input id="busfilter" placeholder="filter buses">
       <div id="buslist"></div><div class="sub" id="busnone"></div></div>
+    <details id="ansec" style="display:none"><summary><b>Graph analytics</b> (Odin III graphlets)</summary>
+      <div class="sub" id="anmeta"></div>
+      <h2>Orbit heat</h2>
+      <select id="anmode"><option value="u">undirected, 73 orbits (Przulj)</option><option value="d">directed, 129 orbits (Sarajlic style)</option></select>
+      <select id="anorbit"></select>
+      <button id="anorbitgo">colour = log(1 + orbit count)</button>
+      <h2>Clustering</h2>
+      <select id="anfeat"><option value="gdv_u">feature: undirected GDV</option><option value="gdv_d">feature: directed GDV</option><option value="xy">feature: x, y position</option></select>
+      <select id="analg"><option value="kmeans">k-means</option><option value="ap">affinity propagation</option></select>
+      <select id="ank"></select>
+      <button id="ancgo">colour = cluster</button>
+      <div class="sub" id="ansilh"></div>
+      <div class="sub" id="aninfo"></div>
+      <select id="anlplane"></select>
+      <div id="anlist" style="max-height:200px;overflow:auto"></div>
+      <div class="sub">Click a cluster: it becomes an update-4 group (all planes and HDL lines light up, shared objects are pies).</div>
+      <h2>Compare signatures</h2>
+      <select id="ansp"></select><select id="ansm"><option value="u">undirected</option><option value="d">directed</option></select>
+      <select id="ansa"></select><select id="ansb"></select>
+      <div id="ansres"></div>
+    </details>
     <button id="depthpreset">colour = logic depth (all planes)</button>
     <div class="sub" id="cover"></div>
     <h2>Bits</h2>
