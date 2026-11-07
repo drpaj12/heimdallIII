@@ -36,14 +36,19 @@ async () => {
   o.fillAnList();
   const sizes = S.an.cur.sizes[big];
   if (!sizes) return { ok: true, degenerate: true, big, heat, why: "all nodes have one structure" };
-  let c = 0;
-  sizes.forEach((n, i) => { if (n > sizes[c]) c = i; });
-  await o.anClusterGroup(big, c);
+  const order = sizes.map((_, i) => i).sort((x, y) => sizes[y] - sizes[x] || x - y);
+  let used = 0;
+  for (const c of order.slice(0, 5)) {
+    // the largest clusters can be unlinked cells (taps, clock buffers): try the next
+    await o.anClusterGroup(big, c);
+    used = c;
+    if (S.core.size > 0) break;
+  }
   const per = {};
   for (const p of S.order) per[p] = [...S.core].filter((id) => S.byId.get(id)?.plane === p).length;
   const lines = S.paint?.lines ? [...S.paint.lines.values()].reduce((t, m) => t + m.size, 0) : 0;
   return { ok: true, big, nodes: S.an.index.planes[big].nodes, heat, k: S.an.cur.sizes[big].length,
-    group: S.groups.groups.length, core: S.core.size, per, lines };
+    group: S.groups.groups.length, cluster: used, core: S.core.size, per, lines };
 }
 """
 
