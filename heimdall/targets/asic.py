@@ -113,6 +113,14 @@ ASIC_METRICS: list[dict[str, Any]] = [
         "source": "OpenROAD route.def",
     },
     {
+        "name": "legal_shift_um",
+        "unit": "um",
+        "planes": ["die"],
+        "scale": "seq",
+        "measurer": "Manhattan move from global placement to the final legal place",
+        "source": "s04_global_place.csv, route.def",
+    },
+    {
         "name": "recover_conf",
         "unit": "4 exact .. 0 ambiguous, -1 not joined",
         "planes": ["die"],
@@ -294,6 +302,19 @@ class Macro:
     w: float = 0.0
     h: float = 0.0
     pins: int = 0
+
+
+def read_global(path: Path) -> dict[str, tuple[int, int]]:
+    """Instance -> (x, y) in DEF units after global placement (before legalisation): the
+    `s04_global_place.csv` that the flow dumps (columns inst,master,x,y,orient,status,step)."""
+    out: dict[str, tuple[int, int]] = {}
+    if not path.is_file():
+        return out
+    for ln in path.read_text(encoding="utf-8").splitlines()[1:]:
+        f = ln.split(",")
+        if len(f) >= 4:
+            out[f[0]] = (int(f[2]), int(f[3]))
+    return out
 
 
 def read_lef(path: Path | None) -> dict[str, Macro]:
@@ -520,6 +541,9 @@ def build_asic_planes(
     flip: dict[str, float] = {}
     conf: dict[str, float] = {}
     pos: dict[str, anchors.Pos] = {}
+    gpos: dict[str, anchors.Pos] = {}
+    shift: dict[str, float] = {}
+    glob = read_global(flow / "or" / "s04_global_place.csv")
     fill = 0
     for c in df.comps:
         if "__fill_" in c.master or "__decap_" in c.master or c.name.startswith("FILLER_"):
@@ -537,6 +561,13 @@ def build_asic_planes(
             round(x + (mac.w / 2 if mac else 0.0), 3),
             round(y + (mac.h / 2 if mac else 0.0), 3),
         )
+        g = glob.get(c.name)
+        if g:
+            gx, gy = g[0] / u, g[1] / u
+            gpos[did] = (pos[did][0] + gx - x, pos[did][1] + gy - y)
+            shift[did] = round(abs(gx - x) + abs(gy - y), 3)
+        elif glob:
+            gpos[did] = pos[did]  # inserted after global placement (CTS, repair): final place
         if c.y in row_of:
             rowm[did] = float(row_of[c.y])
         flip[did] = 1.0 if c.orient in FLIPPED else 0.0
@@ -550,6 +581,7 @@ def build_asic_planes(
     die.set_metric("y_um", cy)
     die.set_metric("row", rowm)
     die.set_metric("flipped", flip)
+    die.set_metric("legal_shift_um", shift)
     die.set_metric("recover_conf", conf)
     die.set_metric(
         "area_um2",
@@ -568,6 +600,7 @@ def build_asic_planes(
     route = export.Plane("route")
     ncount: dict[str, float] = {}
     rpos: dict[str, anchors.Pos] = {}
+    members: dict[str, list[str]] = {}
     metrics: dict[str, dict[str, float]] = {
         k: {} for k in ("wire_um", "vias", "layers", "hpwl_um", "fanout")
     }
@@ -597,6 +630,7 @@ def build_asic_planes(
         metrics["hpwl_um"][rid] = round(max(xs) - min(xs) + max(ys) - min(ys), 3)
         metrics["fanout"][rid] = float(len(inst))
         rpos[rid] = (round(sum(xs) / len(xs), 3), round(sum(ys) / len(ys), 3))
+        members[rid] = [f"die:{i}" for i, _p in inst]
         routes.append((length, rid, poly))
         for i, _p in inst:
             if (f"die:{i}", rid) not in dups:
@@ -635,6 +669,8 @@ def build_asic_planes(
         "notes": notes,
         "routes": routes,
         "route_pos": rpos,
+        "gpos": gpos,
+        "members": members,
         "macros": len(macros),
         "recovered": sum(1 for c in conf.values() if c >= 0),
         "unjoined": sum(1 for c in conf.values() if c < 0),
@@ -692,6 +728,21 @@ def export_asic(
         apos, un, [min(b[0], box[0]), min(b[1], box[1]), max(b[2], box[2]), max(b[3], box[3])]
     )
     sets = {"placement": place, "ast": anchorset.ast_anchor(order, planes, ulinks, parent)}
+    if meta["gpos"]:
+        gbot = {i: (x, round(box[3] - y, 3)) for i, (x, y) in meta["gpos"].items()}
+        for rid, mem in meta["members"].items():
+            gbot[rid] = (
+                round(sum(gbot[m][0] for m in mem) / len(mem), 3),
+                round(sum(gbot[m][1] for m in mem) / len(mem), 3),
+            )
+        gp, gun = anchors.placement_anchor(order, ids, ulinks, gbot, centre, parent, [])
+        gp = anchors.strip_unanchored(gp, gun, 2.0)
+        gb = anchors.bounds_of(gp, 0.0)
+        sets["global"] = anchorset.packed(
+            gp,
+            gun,
+            [min(gb[0], box[0]), min(gb[1], box[1]), max(gb[2], box[2]), max(gb[3], box[3])],
+        )
 
     src_search = [*(src_dirs or []), flow.parent, flow]
     sources = export.find_sources(meta["index"], planes, src_search)

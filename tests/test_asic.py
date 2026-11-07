@@ -78,7 +78,7 @@ class TestBundle(unittest.TestCase):
         for metric in m["metrics"]:
             self.assertTrue(set(metric["planes"]) <= set(m["planes"]))
             self.assertIn(metric["target"], ("asic", "common"))
-        self.assertEqual(m["anchors"], ["ast", "placement"])
+        self.assertEqual(m["anchors"], ["ast", "global", "placement"])
 
     def test_links(self) -> None:
         lj = self.load("links.json")
@@ -118,6 +118,20 @@ class TestBundle(unittest.TestCase):
             poly["nets"]["route:n1"], [[0, 2.0, 3.0, 6.0, 3.0], [1, 6.0, 3.0, 6.0, 5.0]]
         )
 
+    def test_global_placement_anchor(self) -> None:
+        die = self.load("planes/die.json")
+        shift = col(die, "legal_shift_um")
+        self.assertAlmostEqual(shift["die:g1"], 1.0)
+        self.assertAlmostEqual(shift["die:g2"], 1.32)
+        self.assertIsNone(shift["die:TAP_0"])
+        self.assertEqual(self.man["anchors"], ["ast", "global", "placement"])
+        a = self.load("anchors/global.json")
+        self.assertEqual(a["pos"]["die"]["die:g1"], [3.34, 16.14])
+        self.assertEqual(
+            a["pos"]["die"]["die:TAP_0"],
+            self.load("anchors/placement.json")["pos"]["die"]["die:TAP_0"],
+        )
+
     def test_hdl_plane(self) -> None:
         hdl = self.load("planes/hdl.json")
         self.assertEqual(col(hdl, "depth")["hdl:d.v:2.1-2.20"], 1.0)
@@ -126,7 +140,9 @@ class TestBundle(unittest.TestCase):
 
     def test_placement_anchor_in_um(self) -> None:
         a = self.load("anchors/placement.json")
-        self.assertEqual(a["pos"]["die"]["die:g1"], [2.84, 16.64])  # lower left + half the LEF size, y flipped
+        self.assertEqual(
+            a["pos"]["die"]["die:g1"], [2.84, 16.64]
+        )  # lower left + half the LEF size, y flipped
         self.assertEqual(a["pos"]["die"]["die:g2"], [14.34, 13.92])
         self.assertEqual(a["pos"]["stdcell"]["gates:g1"], [2.84, 16.64])
         self.assertEqual(a["pos"]["hdl"]["hdl:d.v:2.1-2.20"], [2.84, 16.64])
