@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from heimdall import export
+from heimdall import flows
 from heimdall.serve import WEB
 
 PART_BYTES = 40_000_000  # hard limit per file is 50 MB
@@ -44,6 +44,7 @@ class Spec:
     src: tuple[Path, ...] = ()
     what: str = ""
     catalogue: str = ""
+    lef: Path | None = None
 
     @property
     def slug(self) -> str:
@@ -59,6 +60,7 @@ def parse_spec(text: str) -> Spec:
     fields = rest.split(",")
     src: list[Path] = []
     what = catalogue = ""
+    lef: Path | None = None
     for f in fields[1:]:
         k, _, v = f.partition("=")
         if k == "src":
@@ -67,11 +69,13 @@ def parse_spec(text: str) -> Spec:
             what = v
         elif k == "catalogue":
             catalogue = v
+        elif k == "lef":
+            lef = Path(v)
         elif what and "=" not in f:
             what += "," + f  # a comma inside the description
         else:
             raise SiteError(f"bad spec {text!r}: unknown key {k!r}")
-    return Spec(suite, design, Path(fields[0]), tuple(src), what, catalogue)
+    return Spec(suite, design, Path(fields[0]), tuple(src), what, catalogue, lef)
 
 
 def parse_specs(args: list[str]) -> list[Spec]:
@@ -169,7 +173,9 @@ def copy_assets(out: Path) -> None:
 
 def build_one(spec: Spec, out: Path, work: Path) -> dict[str, Any]:
     raw = work / spec.slug
-    man = export.export_bundle(spec.flow, raw, f"{spec.suite}:{spec.design}", list(spec.src))
+    man = flows.export_flow(
+        spec.flow, raw, f"{spec.suite}:{spec.design}", list(spec.src), lef=spec.lef
+    )
     bench = out / spec.slug
     bench.mkdir(parents=True, exist_ok=True)
     pack_bundle(raw, bench / "bundle")
@@ -177,7 +183,14 @@ def build_one(spec: Spec, out: Path, work: Path) -> dict[str, Any]:
         _viewer_page((WEB / "index.html").read_text(encoding="utf-8")), encoding="utf-8"
     )
     luts, ffs = lut_ff_counts(raw)
+    asic = man.get("asic")
+    if asic:
+        std = json.loads((raw / "planes" / "stdcell.json").read_text(encoding="utf-8"))["metrics"]
+        luts, ffs = 0, sum(1 for v in std.get("is_ff", []) if v)
     return {
+        "target": "asic" if asic else "fpga",
+        "cells": man["counts"].get("stdcell", 0),
+        "die": f"{asic['die_um'][0]:.0f} x {asic['die_um'][1]:.0f}" if asic else "",
         "slug": spec.slug,
         "suite": spec.suite,
         "design": spec.design,
@@ -196,7 +209,10 @@ def index_html(rows: list[dict[str, Any]], base_url: str, catalogue: str) -> str
         cat = r["catalogue"] or f"{catalogue}#{r['design']}"
         body.append(
             f'<tr><td><a href="{e(r["slug"])}/">{e(r["design"])}</a></td><td>{e(r["suite"])}</td>'
-            f'<td class="n">{r["luts"]}</td><td class="n">{r["ffs"]}</td><td>{e(r["what"])}</td>'
+            f"<td>{e(r.get('target', 'fpga'))}</td>"
+            f'<td class="n">{r["luts"] or ""}</td><td class="n">{r["ffs"]}</td>'
+            f'<td class="n">{r.get("cells") or ""}</td><td class="n">{e(r.get("die", ""))}</td>'
+            f"<td>{e(r['what'])}</td>"
             f'<td><a href="{e(cat)}">Mimir catalogue</a></td></tr>'
         )
     canon = f'<link rel="canonical" href="{e(base_url)}">\n' if base_url else ""
@@ -219,8 +235,8 @@ Part of Yggdrasil III; the benchmarks come from the
 <p class="nav"><a href="guide.html"><b>How to use Heimdall</b></a>: worked examples with
 screenshots, each with a link that opens the exact view. &nbsp;
 <a href="help.html"><b>Help</b></a>: every control, the keys and the deep-link parameters.</p>
-<table><thead><tr><th>design</th><th>suite</th><th>LUTs</th><th>FFs</th>
-<th>what it does</th><th>catalogue</th></tr></thead>
+<table><thead><tr><th>design</th><th>suite</th><th>target</th><th>LUTs</th><th>FFs</th>
+<th>std cells</th><th>die (um)</th><th>what it does</th><th>catalogue</th></tr></thead>
 <tbody>
 {chr(10).join(body)}
 </tbody></table>
@@ -228,10 +244,60 @@ screenshots, each with a link that opens the exact view. &nbsp;
 """
 
 
+_THEAD = re.compile(r"<table><thead>.*?</thead>", re.S)
+_OLD_ROW = re.compile(
+    r'(<tr><td><a href="[^"]*">[^<]*</a></td><td>[^<]*</td>)'
+    r'(<td class="n">\d*</td><td class="n">\d*</td>)'
+)
+_NEW_HEAD = (
+    "<table><thead><tr><th>design</th><th>suite</th><th>target</th><th>LUTs</th><th>FFs</th>\n"
+    "<th>std cells</th><th>die (um)</th><th>what it does</th><th>catalogue</th></tr></thead>"
+)
+
+
+def row_html(r: dict[str, Any], catalogue: str) -> str:
+    e = html.escape
+    cat = r["catalogue"] or f"{catalogue}#{r['design']}"
+    return (
+        f'<tr><td><a href="{e(r["slug"])}/">{e(r["design"])}</a></td><td>{e(r["suite"])}</td>'
+        f"<td>{e(r.get('target', 'fpga'))}</td>"
+        f'<td class="n">{r["luts"] or ""}</td><td class="n">{r["ffs"]}</td>'
+        f'<td class="n">{r.get("cells") or ""}</td><td class="n">{e(r.get("die", ""))}</td>'
+        f'<td>{e(r["what"])}</td><td><a href="{e(cat)}">Mimir catalogue</a></td></tr>'
+    )
+
+
+def extend_index(old: str, rows: list[dict[str, Any]], note: str, catalogue: str) -> str:
+    """The index of an earlier site with the target columns added to its rows, the new rows appended
+    (sorted) and `note` placed before the navigation line; the rest of the page is kept."""
+    text = _THEAD.sub(lambda _m: _NEW_HEAD, old, count=1)
+    text = _OLD_ROW.sub(
+        lambda m: m[1] + "<td>fpga</td>" + m[2] + '<td class="n"></td><td class="n"></td>', text
+    )
+    text = re.sub(r"<p class=\"dim\"><b>Update \d+</b>.*?</p>\n", "", text, flags=re.S)
+    new = "\n".join(
+        row_html(r, catalogue)
+        for r in sorted(rows, key=lambda r: (r["suite"], r["cells"], r["design"]))
+    )
+    text = text.replace("</tbody>", new + "\n</tbody>", 1)
+    return text.replace('<p class="nav">', note + '\n<p class="nav">', 1)
+
+
 def build_site(
-    out: Path, base_url: str, specs: list[Spec], catalogue: str = DEFAULT_CATALOGUE
+    out: Path,
+    base_url: str,
+    specs: list[Spec],
+    catalogue: str = DEFAULT_CATALOGUE,
+    extend: Path | None = None,
+    note: str = "",
 ) -> list[dict[str, Any]]:
-    """Build the whole site into `out`; benchmarks are exported one at a time."""
+    """Build the whole site into `out`; benchmarks are exported one at a time. With `extend` (the
+    directory of an earlier site) that site is copied first, the specs are added as new pages and
+    the index keeps its rows."""
+    if extend is not None:
+        if out.exists():
+            raise SiteError(f"{out} exists: --extend needs a new directory")
+        shutil.copytree(extend, out, symlinks=False)
     out.mkdir(parents=True, exist_ok=True)
     copy_assets(out)
     rows: list[dict[str, Any]] = []
@@ -239,12 +305,20 @@ def build_site(
         for spec in specs:
             rows.append(build_one(spec, out, Path(tmp)))
     rows.sort(key=lambda r: (r["suite"], r["luts"], r["design"]))
-    (out / "index.html").write_text(index_html(rows, base_url, catalogue), encoding="utf-8")
+    if extend is not None:
+        old = (extend / "index.html").read_text(encoding="utf-8")
+        (out / "index.html").write_text(extend_index(old, rows, note, catalogue), encoding="utf-8")
+    else:
+        (out / "index.html").write_text(index_html(rows, base_url, catalogue), encoding="utf-8")
     (out / "help.html").write_text(
         _root_page((WEB / "help.html").read_text(encoding="utf-8")), encoding="utf-8"
     )
     (out / "guide.html").write_text(
-        guide_page((WEB / "guide.html").read_text(encoding="utf-8"), {r["slug"] for r in rows}),
+        guide_page(
+            (WEB / "guide.html").read_text(encoding="utf-8"),
+            {r["slug"] for r in rows}
+            | ({p.name for p in out.iterdir() if (p / "bundle").is_dir()} if extend else set()),
+        ),
         encoding="utf-8",
     )
     return rows

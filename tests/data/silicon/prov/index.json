@@ -1,0 +1,15 @@
+{
+ "design": "d.v",
+ "flow": "silicon-sky130",
+ "kind": "odin3-prov-index",
+ "odin3_version": "odin3 1.4.0 (ABI 7)",
+ "schema": 1,
+ "steps": [],
+ "tools": [
+  {
+   "id": "openroad",
+   "version": "fixture"
+  }
+ ],
+ "top": "t"
+}

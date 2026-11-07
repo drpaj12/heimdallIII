@@ -1,4 +1,4 @@
-"""Site builder, targets and the ASIC stub, on the tiny fixture run."""
+"""Site builder and targets, on the tiny fixture run."""
 
 from __future__ import annotations
 
@@ -67,8 +67,8 @@ class TestTargets(unittest.TestCase):
             },
         )
 
-    def test_asic_stub(self) -> None:
-        with self.assertRaises(NotImplementedError):
+    def test_asic_needs_a_finished_run(self) -> None:
+        with self.assertRaises(export.ExportError):
             asic.export_asic(FLOW, Path("/nonexistent"))
 
 

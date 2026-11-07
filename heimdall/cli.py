@@ -7,7 +7,7 @@ import contextlib
 import sys
 from pathlib import Path
 
-from heimdall import export, serve, site
+from heimdall import export, flows, serve, site
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -32,6 +32,11 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help="odin3 program for the extra dump run (default: the one in the flow's log); "
         "needs write_graph for the graph planes",
     )
+    ex.add_argument(
+        "--lef",
+        metavar="FILE",
+        help="sky130_fd_sc_hd.lef for cell areas (silicon runs; default: the workspace PDK)",
+    )
     st = vsub.add_parser("site", help="build a static site of several benchmarks")
     st.add_argument("--out", required=True, metavar="DIR")
     st.add_argument("--base-url", default="", metavar="URL", help="canonical URL of the site root")
@@ -39,7 +44,14 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         "specs",
         nargs="+",
         metavar="SPEC",
-        help="SUITE:DESIGN=FLOW_DIR[,src=DIR][,what=TEXT][,catalogue=URL], or @FILE (one per line)",
+        help="SUITE:DESIGN=FLOW_DIR[,src=DIR][,what=TEXT][,catalogue=URL][,lef=FILE], "
+        "or @FILE (one per line)",
+    )
+    st.add_argument(
+        "--extend", metavar="OLD_SITE_DIR", help="copy an earlier site and add the specs to it"
+    )
+    st.add_argument(
+        "--note", default="", metavar="HTML", help="paragraph for the index (with --extend)"
     )
     sv = vsub.add_parser("serve", help="serve the viewer and one bundle on 127.0.0.1")
     sv.add_argument("bundle", metavar="BUNDLE_DIR")
@@ -67,13 +79,14 @@ def main(argv: list[str] | None = None) -> int:
 def _export(args: argparse.Namespace) -> int:
     flow = Path(args.flow)
     try:
-        man = export.export_bundle(
+        man = flows.export_flow(
             flow,
             Path(args.out),
             args.benchmark or flow.name,
             [Path(s) for s in args.src],
             args.clusters,
             Path(args.odin3) if args.odin3 else None,
+            Path(args.lef) if args.lef else None,
         )
     except export.ExportError as e:
         print(f"heimdall export: {e}", file=sys.stderr)
@@ -100,7 +113,13 @@ def _serve(args: argparse.Namespace) -> int:
 def _site(args: argparse.Namespace) -> int:
     try:
         specs = site.parse_specs(args.specs)
-        rows = site.build_site(Path(args.out), args.base_url, specs)
+        rows = site.build_site(
+            Path(args.out),
+            args.base_url,
+            specs,
+            extend=Path(args.extend) if args.extend else None,
+            note=args.note,
+        )
     except (site.SiteError, export.ExportError) as e:
         print(f"heimdall site: {e}", file=sys.stderr)
         return 2

@@ -1,0 +1,27 @@
+MACRO sky130_fd_sc_hd__nand2_1
+  SIZE 3.68 BY 2.72 ;
+  PIN A
+    USE SIGNAL ;
+  END A
+  PIN B
+    USE SIGNAL ;
+  END B
+  PIN Y
+    USE SIGNAL ;
+  END Y
+  PIN VPWR
+    USE POWER ;
+  END VPWR
+END sky130_fd_sc_hd__nand2_1
+MACRO sky130_fd_sc_hd__dfxtp_1
+  SIZE 17.48 BY 2.72 ;
+  PIN CLK
+    USE SIGNAL ;
+  END CLK
+  PIN D
+    USE SIGNAL ;
+  END D
+  PIN Q
+    USE SIGNAL ;
+  END Q
+END sky130_fd_sc_hd__dfxtp_1
