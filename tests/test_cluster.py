@@ -35,6 +35,15 @@ class TestCluster(unittest.TestCase):
         self.assertEqual(lab[3], lab[4])
         self.assertNotEqual(lab[0], lab[3])
 
+    def test_affinity_slow_start(self) -> None:
+        # Fixed point: with damping 0.9 the messages stay in the one-exemplar start-up state for
+        # about 190 iterations on these points. The old rule (exemplar set unchanged for 15
+        # iterations) stopped there and returned one cluster; the run to convergence gives two.
+        pts = [(2.9, 9.3), (9.5, 7.8), (6.1, 8.0), (0.5, 6.2), (4.5, 3.3)]
+        lab = cluster.affinity(pts, [9.0, 5.0, 5.0, 1.0, 5.0])
+        self.assertGreater(len(set(lab)), 1)
+        self.assertEqual(len(set(lab)), len(set(cluster.affinity(pts, [1.0] * 5, iters=3000))))
+
     def test_affinity_cap(self) -> None:
         rows = [(float(i), 0.0) for i in range(cluster.AP_CAP + 20)]
         out = cluster.run_affinity(rows)
