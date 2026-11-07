@@ -69,6 +69,7 @@ class TestBundle(unittest.TestCase):
         c = m["coord"]["die"]
         self.assertEqual((c["kind"], c["unit"]), ("um", "um"))
         self.assertEqual(c["bounds"], [0.0, 0.0, 20.0, 20.0])
+        self.assertEqual(c["flip_y"], 20.0)
         self.assertEqual(c["core"], [1.0, 2.0, 5.6, 7.44])
         self.assertEqual(c["rows"]["count"], 2)
         self.assertAlmostEqual(c["rows"]["pitch_um"], 2.72)
@@ -125,11 +126,11 @@ class TestBundle(unittest.TestCase):
 
     def test_placement_anchor_in_um(self) -> None:
         a = self.load("anchors/placement.json")
-        self.assertEqual(a["pos"]["die"]["die:g1"], [2.84, 3.36])  # lower left + half the LEF size
-        self.assertEqual(a["pos"]["die"]["die:g2"], [14.34, 6.08])
-        self.assertEqual(a["pos"]["stdcell"]["gates:g1"], [2.84, 3.36])
-        self.assertEqual(a["pos"]["hdl"]["hdl:d.v:2.1-2.20"], [2.84, 3.36])
-        self.assertEqual(a["pos"]["hdl"]["hdl:d.v:1.1-4.10"], [8.59, 4.72])
+        self.assertEqual(a["pos"]["die"]["die:g1"], [2.84, 16.64])  # lower left + half the LEF size, y flipped
+        self.assertEqual(a["pos"]["die"]["die:g2"], [14.34, 13.92])
+        self.assertEqual(a["pos"]["stdcell"]["gates:g1"], [2.84, 16.64])
+        self.assertEqual(a["pos"]["hdl"]["hdl:d.v:2.1-2.20"], [2.84, 16.64])
+        self.assertEqual(a["pos"]["hdl"]["hdl:d.v:1.1-4.10"], [8.59, 15.28])
         self.assertEqual(a["unanchored"], ["hdl:d.v:4.1-4.5"])
         self.assertEqual(a["bounds"][:4][0:2], [0.0, 0.0])
         self.assertEqual(a["bounds"][2:], [20.0, 20.0])

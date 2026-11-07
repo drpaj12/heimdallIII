@@ -136,7 +136,7 @@ const SHAPES = [
   () => new THREE.TetrahedronGeometry(1.3), () => new THREE.DodecahedronGeometry(1.1),
 ];
 const CONE_COL = { seed: "#ffb454", in: "#5fe0ff", out: "#ff6fd8" };
-const RADIUS = { stg: 0.14, cfg: 0.1, ddg: 0.07, hdl: 0.22, cell: 0.17, lut: 0.17, clb: 0.2, placed: 0.11 };
+const RADIUS = { stg: 0.14, cfg: 0.1, ddg: 0.07, hdl: 0.22, cell: 0.17, lut: 0.17, clb: 0.2, placed: 0.11, stdcell: 0.07, die: 0.06, route: 0.05 };
 const TIER_COL = { A: "#ff9f1c", B: "#2ec4b6", C: "#9b8cff" };
 const TIER_NAME = { A: "own: only this item", B: "shared: case select / mux, serves this item and others", C: "context: the rest of the case" };
 const FF_COL = "#ff4fd8";
@@ -207,6 +207,7 @@ function resizeQuads() {
 }
 
 function layout() {
+  drawFrames();
   S.order.forEach((p, k) => {
     const y = planeY(k);
     const { q, edge, lab } = quads[p];
@@ -537,8 +538,61 @@ function refreshClbFF() {
   f.mesh.computeBoundingSphere();
 }
 
+// ---- ASIC planes: the die is drawn in um; core outline, rows and the routed wires of the selection ----
+// Anchor y is flipped (y' = flip_y - y) so the chip reads with y up, as in a layout viewer.
+const umPlanes = () => S.order.filter((p) => S.man.coord?.[p]?.kind === "um");
+let frames = [], routeLines = null;
+const dispose = (o) => { group.remove(o); o.geometry.dispose(); o.material.dispose(); };
+function drawFrames() {
+  for (const f of frames) dispose(f);
+  frames = [];
+  for (const p of S.anchor === "placement" ? umPlanes() : []) {
+    const c = S.man.coord[p], fl = c.flip_y ?? 0, y = planeY(S.order.indexOf(p)) + 0.02, pts = [];
+    const rect = (b) => { const [x0, y0, x1, y1] = [b[0] - cx(), fl - b[3] - cz(), b[2] - cx(), fl - b[1] - cz()];
+      for (const [a, z, e, w] of [[x0, y0, x1, y0], [x1, y0, x1, y1], [x1, y1, x0, y1], [x0, y1, x0, y0]]) pts.push(new THREE.Vector3(a, y, z), new THREE.Vector3(e, y, w)); };
+    rect(c.bounds);
+    const r = c.rows, core = c.core, rowPts = [];
+    if (core) {
+      rect(core);
+      for (let i = 1; i < (r?.count ?? 0); i++) {
+        const z = fl - (r.y0_um + i * r.pitch_um) - cz();
+        rowPts.push(new THREE.Vector3(r.x0_um - cx(), y, z), new THREE.Vector3(r.x1_um - cx(), y, z));
+      }
+    }
+    const mk = (v, col, op) => { const l = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(v), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op })); group.add(l); frames.push(l); };
+    mk(pts, 0xffb454, 0.9);
+    if (rowPts.length) mk(rowPts, 0x6d7f99, 0.25);
+  }
+}
+const LAYER_COL = [0x5fe0ff, 0xff6fd8, 0xffd166, 0x7bd88f, 0xb69cff, 0xff9f1c, 0x9be7ff, 0xff8a8a];
+async function drawRoutes() {
+  if (routeLines) { dispose(routeLines); routeLines = null; }
+  if (!S.sel || !S.planes.route || !umPlanes().length || S.anchor !== "placement") return;
+  const a = S.byId.get(S.sel);
+  const nets = a.plane === "route" ? [S.sel] : a.plane === "die" ? (S.down.get(S.sel) ?? []).filter((x) => S.byId.get(x)?.plane === "route").slice(0, 60) : [];
+  if (!nets.length) return;
+  S.routes ??= await getJson("routes.json");
+  if (!S.sel || S.byId.get(S.sel) !== a) return;
+  const fl = S.man.coord.die?.flip_y ?? 0, y = planeY(S.order.indexOf("die")) + 0.06;
+  const pos = [], col = [];
+  for (const n of nets) for (const seg of S.routes.nets[n] ?? []) {
+    const c = new THREE.Color(LAYER_COL[seg[0] % LAYER_COL.length]);
+    for (let k = 1; k + 3 < seg.length; k += 2) {
+      pos.push(seg[k] - cx(), y, fl - seg[k + 1] - cz(), seg[k + 2] - cx(), y, fl - seg[k + 3] - cz());
+      col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+  }
+  if (!pos.length) return;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  routeLines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true }));
+  group.add(routeLines);
+}
+
 function drawLines() {
   if (lines) { group.remove(lines); lines.geometry.dispose(); lines = null; }
+  drawRoutes();
   if (!S.sel) return;
   const pts = [];
   const a = S.byId.get(S.sel);

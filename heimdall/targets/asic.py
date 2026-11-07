@@ -682,6 +682,8 @@ def export_asic(
     dropped = len(set(links)) - len(kept)
     ulinks = [(a, b) for a, b, _, _ in kept]
     box = meta["die_box"]
+    # anchor y runs up the screen: y' = die top - y (the coord header carries flip_y)
+    pos = {i: (x, round(box[3] - y, 3)) for i, (x, y) in pos.items()}
     centre = ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
     apos, un = anchors.placement_anchor(order, ids, ulinks, pos, centre, parent, [])
     apos = anchors.strip_unanchored(apos, un, 2.0)
@@ -732,6 +734,7 @@ def export_asic(
                 "kind": "um",
                 "unit": "um",
                 "origin": [box[0], box[1]],
+                "flip_y": box[3],
                 "bounds": box,
                 "core": box_c,
                 "rows": meta["rows"],
