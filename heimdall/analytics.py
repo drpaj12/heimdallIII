@@ -569,7 +569,6 @@ def pack_new(bundle: Path, part_bytes: int = 40_000_000) -> None:
     )
 
 
-INSTANCE_TYPES = 6  # the rarest graphlet types of a plane and mode that get an instance list
 INSTANCE_MAX = 400  # instances kept per type; the file says when a type was cut
 # One Odin III run enumerates every connected node set of the plane graph once per type. A plane
 # and mode with more sets than this (about 30 s per type) gets no instance list; the index notes
@@ -582,13 +581,14 @@ class Runner(Protocol):
 
 
 def add_instances(bundle: Path, bridge: Runner) -> list[str]:
-    """Ask Odin III for the instances of the rarest graphlet types of every analysed plane and mode,
+    """Ask Odin III for the instances of every graphlet type that occurs, for each plane and mode,
     write analytics/instances.<plane>.<mode>.json (plane object indices, plus the plane's edge list
     for the viewer's conflict graph). Needs Odin III `graphlets --instances` (spec
     2026-11-06-odin3-graphlet-instances.md; rel-main4 or later). A plane and mode with more than
     INSTANCE_MAX_SETS connected node sets, or one the bridge fails on, is skipped with a note in
     analytics/index.json. Returns the "<plane>.<mode>" names written, which are listed in
-    manifest["analytics"]["instances"]."""
+    manifest["analytics"]["instances"]. One file per plane and mode, fetched by the viewer only when
+    a type is picked (never at page load); each type holds at most INSTANCE_MAX instances."""
     rd = BundleReader(bundle)
     graphs = {g.plane: g for g in bundle_graphs(rd)[0]}
     ipath = bundle / "analytics" / "index.json"
@@ -602,7 +602,7 @@ def add_instances(bundle: Path, bridge: Runner) -> list[str]:
             table = info["graphlet_types"][mk]
             sets = sum(r[3] for r in table)
             rows = [r for r in table if r[3] > 0]
-            rare = sorted(rows, key=lambda r: (r[3], r[0]))[:INSTANCE_TYPES]
+            rare = sorted(rows, key=lambda r: (r[3], r[0]))
             if not rare:
                 continue
             if sets > INSTANCE_MAX_SETS:

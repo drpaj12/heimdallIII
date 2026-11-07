@@ -64,3 +64,21 @@ test("class nodes and rare-first table", () => {
   assert.deepEqual(classNodes([[0, 1], [3, 4], [1, 2]], [0, 0, 1], 2), [[0, 1, 3, 4], [1, 2]]);
   assert.deepEqual(rareFirst([[0, 2, 1, 40], [1, 3, 2, 0], [2, 3, 3, 7]]).map((r) => r[0]), [2, 0, 1]);
 });
+
+test("rareFirst puts every nonzero type before the greyed zero types", () => {
+  const rows = Array.from({ length: 30 }, (_, g) => [g, 3, 2, g % 4 === 0 ? 0 : 100 - g]);
+  const out = rareFirst(rows);
+  const firstZero = out.findIndex((r) => r[3] === 0);
+  assert.ok(out.slice(firstZero).every((r) => r[3] === 0));
+  assert.ok(out.slice(0, firstZero).every((r) => r[3] > 0));
+  assert.equal(out.length, 30);
+});
+
+test("instance files are fetched only when a type is picked", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../heimdall/web/app.js", import.meta.url), "utf8");
+  const hits = src.split("\n").filter((l) => l.includes("analytics/instances."));
+  assert.equal(hits.length, 1);
+  const fn = src.slice(src.indexOf("async function anInstances"));
+  assert.ok(fn.slice(0, fn.indexOf("\n}\n")).includes("analytics/instances."));
+});
