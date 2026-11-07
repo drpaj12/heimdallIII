@@ -32,6 +32,7 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 <a href="index.html">index</a>.</p>
 <nav id="toc"><b>Examples</b>
 <ol>
+  <li><a href="#update8">What's new (v0.8)</a></li>
   <li><a href="#update7">What's new (v0.7)</a></li>
   <li><a href="#update61">What's new (update 6.1)</a></li>
   <li><a href="#update6">What's new (update 6)</a></li>
@@ -52,6 +53,13 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 </ol></nav>
 <p>The viewer needs a browser with WebGL. Drag to rotate, right-drag to pan, wheel to zoom, click to select. Click empty space to clear the selection.
 Every picture below is a real screenshot of the viewer on the benchmark named above it, taken with the link beside it.</p>
+<section id="update8" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
+<h2>What's new (v0.8)</h2>
+<ul>
+<li><b>Graphlet instances.</b> In <b>Graph analytics</b>, click a row of the graphlet type table (rare types first) to see every instance of that pattern on the plane. Instances that touch (share a node, or have an edge between them) get different colours, so each instance can be told apart (a map colouring, found by the DSatur method); the legend line gives the number of colours. A node that belongs to instances of several colours is drawn as a pie. The six rarest types of each plane have an instance list; a list is cut at 400 instances and the line says so ("cut at 400, not all shown"). The counts in the table are exact either way. The details are in <a href="help.html#update8">help</a>.</li>
+<li><b>Compare any two selections</b> is now checked against Odin III at full precision (1e-9; it was 5e-7).</li>
+</ul>
+</section>
 <section id="update7" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
 <h2>What's new (v0.7)</h2>
 <ul>
@@ -69,7 +77,7 @@ Every picture below is a real screenshot of the viewer on the benchmark named ab
 <h2>What's new (update 6)</h2>
 <ul>
 <li><b>Graph analytics.</b> The left panel has a new section, <b>Graph analytics</b> (Odin III graphlets). Orbit heat colours every plane by how often each node sits at one chosen position of a small graph pattern; clustering groups nodes with the same structure (k-means, affinity propagation) and a click on a cluster lights it up on all planes and in the HDL like any group; two clusters can be compared by their signatures. The details are in <a href="help.html#update6">help</a>.</li>
-<li><b>Graphlet types.</b> A table of the counts of each pattern, rare first. Listing the instances of one pattern waits for an Odin III addition.</li>
+<li><b>Graphlet types.</b> A table of the counts of each pattern, rare first. Listing the instances of one pattern came in v0.8.</li>
 </ul>
 </section>
 <section id="update5" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">

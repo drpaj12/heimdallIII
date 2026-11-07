@@ -23,7 +23,7 @@ The version is `heimdall.__version__` (one place; the help page, the guide and t
 | v0.6 (update 6) | graph analytics: signatures, clusterings, graphlet types | 2026-11-06 |
 | v0.6.1 | affinity propagation fix | 2026-11-06 |
 | v0.7 | switching-activity overlay (Bifrost III power) and compare on any selection | 2026-11-07 |
-| v0.8 (planned) | graphlet instance view | |
+| v0.8 | graphlet instance view (Odin III `graphlets --instances`); metric port checked to 1e-9 | 2026-11-07 |
 
 ## Make a bundle
 
@@ -497,4 +497,15 @@ clustering. The browser signs each selection (orbit totals and GDD of the member
 agreement and the cosine of log(1 + orbit totals) for the undirected and the directed graphlets, with the member counts and the
 objects that have no GDV. `web/selcompare.js` is a port of Odin III's `src/graph/sig.c`; `tests/js/selcompare.test.mjs` pins it to
 Odin III's values in `tests/data/selcompare/fixture.json` (made by `PYTHONPATH=. python3 tools/selcompare_fixture.py`, which runs
-Odin III; Odin III prints the metrics with 6 decimals, so the match is to 5e-7).
+Odin III; since v0.8 the values come at full double precision from `odin3.graphlet_similarity`, so the match is to 1e-9).
+
+## v0.8: graphlet instances
+
+In Graph analytics, the graphlet type table lists the types of a plane and mode, rare first, with their counts. For the
+rarest types (`INSTANCE_TYPES` = 6 per plane and mode) the exporter asks Odin III for the instances (`odin3.graphlet_instances`,
+through `tools/odin3_glet_bridge.py`, op `instances`) and writes `analytics/instances.<plane>.<mode>.json`: per type `total`
+(exact), `written`, `truncated`, `max` (`INSTANCE_MAX` = 400) and the instances as plane object indices, plus the plane's edge
+list. A click on a type colours every instance: two instances conflict when they share a node or an edge joins them, DSatur
+colours the conflict graph (the number of colours is shown), and a node shared by instances of several colours is a pie.
+Types beyond the rarest six have counts only; a type with more instances than `max` says "cut at max, not all shown" (never
+silent). Needs Odin III rel-main4 or later.

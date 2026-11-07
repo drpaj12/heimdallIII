@@ -100,12 +100,8 @@ class TestBundle(unittest.TestCase):
             self.assertEqual(man["analytics"]["planes"], ["lut"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class FakeBridge:
-    """Stands in for the bridge: canned instances (the Odin III addition is not released)."""
+    """Stands in for the bridge: canned instances."""
 
     calls: list[dict[str, Any]]
 
@@ -134,3 +130,98 @@ class TestInstances(unittest.TestCase):
             self.assertEqual((t["total"], t["written"], t["truncated"]), (5, 2, 1))
             man = json.loads((b / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("lut.u", man["analytics"]["instances"])
+
+
+def _reads_instances(bridge: Any) -> bool:
+    try:
+        bridge.run(
+            {
+                "op": "instances",
+                "jobs": [
+                    {
+                        "n": 2,
+                        "edges": [(0, 1)],
+                        "directed": False,
+                        "size": 5,
+                        "graphlet": 0,
+                        "max": 1,
+                    }
+                ],
+            }
+        )
+    except RuntimeError:
+        return False
+    return True
+
+
+class TestRealInstances(unittest.TestCase):
+    """The instance files from the real Odin III: the exact total of every written type equals the
+    count of the type table, which analytics derives from the orbit totals of the same graph."""
+
+    def test_totals_equal_orbit_derived_counts(self) -> None:
+        real = analytics.find_bridge()
+        if real is None or not _reads_instances(real):
+            self.skipTest("no Odin III binding with graphlet_instances (rel-main4 or later)")
+        with tempfile.TemporaryDirectory() as td:
+            b = tiny_bundle(Path(td) / "b")
+            analytics.analyse_bundle(b, real)
+            index = json.loads((b / "analytics" / "index.json").read_text(encoding="utf-8"))
+            man = json.loads((b / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(man["analytics"]["instances"], ["lut.u", "lut.d"])
+            for mk in ("u", "d"):
+                doc = json.loads(
+                    (b / "analytics" / f"instances.lut.{mk}.json").read_text(encoding="utf-8")
+                )
+                table = {str(r[0]): r for r in index["planes"]["lut"]["graphlet_types"][mk]}
+                self.assertTrue(doc["types"])
+                for g, t in doc["types"].items():
+                    self.assertEqual(t["total"], table[g][3], f"{mk} G{g}")
+                    self.assertEqual(t["written"], t["total"])
+                    self.assertEqual(t["truncated"], 0)
+                    for inst in t["instances"]:
+                        self.assertEqual(inst, sorted(inst))
+                        self.assertEqual(len(inst), table[g][1])
+
+    def test_truncation_is_reported(self) -> None:
+        real = analytics.find_bridge()
+        if real is None or not _reads_instances(real):
+            self.skipTest("no Odin III binding with graphlet_instances (rel-main4 or later)")
+        old = analytics.INSTANCE_MAX
+        analytics.INSTANCE_MAX = 1
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                b = tiny_bundle(Path(td) / "b")
+                analytics.analyse_bundle(b, real)
+                doc = json.loads(
+                    (b / "analytics" / "instances.lut.u.json").read_text(encoding="utf-8")
+                )
+                cut = [t for t in doc["types"].values() if t["total"] > 1]
+                self.assertTrue(cut)
+                for t in cut:
+                    self.assertEqual((t["written"], t["truncated"], t["max"]), (1, 1, 1))
+        finally:
+            analytics.INSTANCE_MAX = old
+
+
+class TestInstanceLimits(unittest.TestCase):
+    def test_a_huge_plane_gets_a_note_not_a_run(self) -> None:
+        real = analytics.find_bridge()
+        if real is None:
+            self.skipTest("no Odin III binding for the signature step")
+        old = analytics.INSTANCE_MAX_SETS
+        analytics.INSTANCE_MAX_SETS = 1
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                b = tiny_bundle(Path(td) / "b")
+                analytics.analyse_bundle(b, real)
+                fake = FakeBridge()
+                self.assertEqual(analytics.add_instances(b, fake), [])
+                self.assertEqual(fake.calls, [])
+                index = json.loads((b / "analytics" / "index.json").read_text(encoding="utf-8"))
+                self.assertTrue(any("no instance list" in n for n in index["notes"]))
+        finally:
+            analytics.INSTANCE_MAX_SETS = old
+
+
+if __name__ == "__main__":
+    unittest.main()
