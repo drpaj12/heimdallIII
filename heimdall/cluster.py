@@ -114,12 +114,18 @@ def affinity(
     damping: float = 0.9,
     iters: int = 200,
     stable: int = 15,
+    tol: float = 1e-3,
 ) -> list[int]:
     """Affinity propagation (Frey and Dueck 2007): similarity = -squared distance, preference =
     median
     similarity. The points are distinct vectors; `weights` (multiplicity) is accepted for the
     caller's
-    ordering and does not enter the messages. Returns the cluster number per point."""
+    ordering and does not enter the messages. The run stops early only when the exemplar set has
+    been unchanged for `stable` iterations and the exemplar criterion a+r has moved by less than
+    `tol` times |preference| in the last one, and only with two or more exemplars: with damping 0.9
+    the messages stay in the start-up state, in which a single point is the only exemplar, for
+    anything from 20 to over 150 iterations, and a stable single exemplar is no sign of
+    convergence. Returns the cluster number per point."""
     n = len(pts)
     if n == 1:
         return [0]
@@ -132,6 +138,8 @@ def affinity(
     a = [[0.0] * n for _ in range(n)]
     last: list[int] = []
     same = 0
+    crit = [0.0] * n
+    eps = tol * abs(pref)
     for _ in range(iters):
         for i in range(n):
             row = [a[i][k] + s[i][k] for k in range(n)]
@@ -147,10 +155,13 @@ def affinity(
             for i in range(n):
                 new = total - r[k][k] if i == k else min(0.0, total - pos[i])
                 a[i][k] = damping * a[i][k] + (1 - damping) * new
-        ex = [k for k in range(n) if a[k][k] + r[k][k] > 0]
+        prev = crit
+        crit = [a[k][k] + r[k][k] for k in range(n)]
+        ex = [k for k in range(n) if crit[k] > 0]
         if ex == last and ex:
             same += 1
-            if same >= stable:
+            moved = max(abs(c - p) for c, p in zip(crit, prev, strict=True))
+            if same >= stable and len(ex) > 1 and moved <= eps:
                 break
         else:
             same = 0
