@@ -548,7 +548,7 @@ const dispose = (o) => { group.remove(o); o.geometry.dispose(); o.material.dispo
 function drawFrames() {
   for (const f of frames) dispose(f);
   frames = [];
-  for (const p of PHYS_ANCHORS.has(S.anchor) ? umPlanes() : []) {
+  for (const p of PHYS_ANCHORS.has(S.anchor) ? umPlanes().filter((q) => S.vis[q] !== false) : []) {
     const c = S.man.coord[p], y = planeY(S.order.indexOf(p)) + 0.02;
     const v = (list) => list.flatMap(([x0, z0, x1, z1]) => [new THREE.Vector3(x0 - cx(), y, z0 - cz()), new THREE.Vector3(x1 - cx(), y, z1 - cz())]);
     const mk = (pts, col, op) => { const l = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op })); group.add(l); frames.push(l); };

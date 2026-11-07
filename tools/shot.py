@@ -24,6 +24,7 @@ def shoot(
     size: str = "",
     evals: list[str] | None = None,
     results: list[Any] | None = None,
+    query: str = "",
 ) -> list[str]:
     from playwright.sync_api import sync_playwright
 
@@ -37,7 +38,7 @@ def shoot(
         page = browser.new_page(viewport={"width": 1500, "height": 900})
         page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.goto(f"http://127.0.0.1:{srv.server_address[1]}/")
+        page.goto(f"http://127.0.0.1:{srv.server_address[1]}/{query}")
         page.wait_for_selector("body[data-ready='1']", timeout=30000)
         page.evaluate("window.__o3viz.stop()")
         for js in evals or []:
@@ -66,9 +67,10 @@ def main() -> int:
     ap.add_argument("--colour", default="")
     ap.add_argument("--size", default="")
     ap.add_argument("--select", default="")
+    ap.add_argument("--query", default="", help="URL query, e.g. ?sel=line:12&plane=die")
     ap.add_argument("--eval", action="append", default=[], help="JavaScript run in the page first")
     a = ap.parse_args()
-    errs = shoot(Path(a.bundle), Path(a.out), a.colour, a.select, a.size, a.eval)
+    errs = shoot(Path(a.bundle), Path(a.out), a.colour, a.select, a.size, a.eval, None, a.query)
     for e in errs:
         print("console error:", e, file=sys.stderr)
     return 1 if errs else 0

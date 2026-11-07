@@ -14,6 +14,8 @@ INTR = "vtr-verilog-ch_intrinsics"
 SHA = "vtr-verilog-sha"
 CLOCK = "verilogeval-Prob141_count_clock"
 UART = "opencores-uart2spi"
+MMUART = "silicon-mmuart"
+SHA3 = "silicon-sha3_low"
 
 VIZ = "window.__o3viz"
 SCROLL = "id => document.getElementById(id).scrollIntoView({block: 'start'})"
@@ -81,3 +83,7 @@ def define(shot: Callable[..., None]) -> None:
     shot("rainbow-1", INTR, "sel=line:200-202&plane=lut&panels=left&zoom=2.2")
     shot("bits-1", SHA, "sel=bus:A&bits=1&view=lut&zoom=3&panels=left,right")
     shot("groups-1", UART, "grp=" + GROUPS + "&plane=lut&panels=left&zoom=1.6")
+    # 12 ASIC planes: from an HDL line to the die
+    shot("asic-1", MMUART, "sel=line:187-190&panels=left,right&zoom=1")
+    shot("asic-2", SHA3, "solo=die&panels=hdl&zoom=2.2")
+    shot("asic-3", SHA3, "solo=die&anchor=global&colour=legal_shift_um&panels=hdl&zoom=2.2")

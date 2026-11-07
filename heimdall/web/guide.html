@@ -32,6 +32,7 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 <a href="index.html">index</a>.</p>
 <nav id="toc"><b>Examples</b>
 <ol>
+  <li><a href="#update5">What's new (update 5)</a></li>
   <li><a href="#update4">What's new (update 4)</a></li>
   <li><a href="#lines">Select HDL lines</a></li>
   <li><a href="#tiers">Case tiers A, B, C; FSM recoding</a></li>
@@ -44,9 +45,17 @@ with what to notice, and a link that opens the viewer in that exact state (the l
   <li><a href="#planes">Focus, solo, zoom to cursor</a></li>
   <li><a href="#view2d">2D view, collapsible panels</a></li>
   <li><a href="#rainbow">Rainbow lines, bit squares, reverse groups</a></li>
+  <li><a href="#asic">ASIC planes: from an HDL line to the die</a></li>
 </ol></nav>
 <p>The viewer needs a browser with WebGL. Drag to rotate, right-drag to pan, wheel to zoom, click to select. Click empty space to clear the selection.
 Every picture below is a real screenshot of the viewer on the benchmark named above it, taken with the link beside it.</p>
+<section id="update5" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
+<h2>What's new (update 5)</h2>
+<ul>
+<li><b>ASIC planes.</b> Seven OpenCores designs now also have a <code>silicon-</code> page: the Odin III to OpenROAD to GDS flow on sky130. The planes are the HDL, the standard cells (<code>stdcell</code>), the placed die in micrometres (<code>die</code>) and the routed nets (<code>route</code>). Click an HDL line and its cells light up on the die.</li>
+<li><b>Where cells go.</b> The die plane is the final legal placement from the DEF; the anchor <code>global</code> shows it before legalisation. The placement steps are explained in <a href="help.html#update5">the help page</a>. See example 12 below.</li>
+</ul>
+</section>
 <section id="update4" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
 <h2>What's new (update 4)</h2>
 <ul>
@@ -236,6 +245,23 @@ Every picture below is a real screenshot of the viewer on the benchmark named ab
 </section>
 <p class="dim" style="margin-top:3rem">Counts and numbers in the captions are read from the viewer on the bundles of this site. A value that was not measured is grey in the
 viewer, never a default.</p>
+<section class="ex" id="asic">
+<h2>12. ASIC planes: from an HDL line to the die</h2>
+<p class="bench">Design: <code>silicon-mmuart</code> (the OpenCores mmuart, 488 standard cells on a 135 x 135 um die), and <code>silicon-sha3_low</code> (17,566 cells)</p>
+<p class="q"><b>Question.</b> Which standard cells does this Verilog statement become, where are they on the chip, and how sure is the link?</p>
+<ol>
+<li>Open silicon-mmuart. The stack is <code>hdl</code>, <code>stdcell</code>, <code>die</code>, <code>route</code>. The die plane carries an orange die outline, a core outline and the grey cell rows.</li>
+<li>Drag over lines 187 to 190 in the pane (the receive counter). The four lines are red, orange-green, cyan and violet; each cell takes the colour of the line it came from, a cell from several lines is a pie.</li>
+<li>Press the <b>focus</b> button of the <code>die</code> plane in the right panel. The 183 cells sit in the middle of the core, the white tap cells are the regular grid.</li>
+<li>Click one die cell. Its metrics show the library cell, area, <code>x_um</code>, <code>y_um</code>, the row and <code>recover_conf</code>; its routed wires are drawn on the die in one colour per metal layer.</li>
+</ol>
+<figure><img src="images/guide/asic-1.png" alt="asic-1" loading="lazy"><figcaption>mmuart, lines 187 to 190. The right panel counts 4 constructs, 183 standard cells, 183 die objects and 266 nets in the column. <span class="dimlink">(<a class="tryit" href="@silicon-mmuart/?rotate=0&amp;sel=line:187-190&amp;panels=left,right&amp;zoom=1">open this view</a>)</span></figcaption></figure>
+<p>Now the big picture. Open silicon-sha3_low and show only the die plane.</p>
+<figure><img src="images/guide/asic-2.png" alt="asic-2" loading="lazy"><figcaption>sha3_low die: the logic fills a disc in the middle of a 25 percent utilisation core; the lattice around it is the tap cells. <span class="dimlink">(<a class="tryit" href="@silicon-sha3_low/?rotate=0&amp;solo=die&amp;panels=hdl&amp;zoom=2.2">open this view</a>)</span></figcaption></figure>
+<figure><img src="images/guide/asic-3.png" alt="asic-3" loading="lazy"><figcaption>The same cells at the <code>global</code> anchor, coloured by <code>legal_shift_um</code>, the distance legalisation moved each cell (0 to 29 um). Most cells moved little; the bright ones moved far. <span class="dimlink">(<a class="tryit" href="@silicon-sha3_low/?rotate=0&amp;solo=die&amp;anchor=global&amp;colour=legal_shift_um&amp;panels=hdl&amp;zoom=2.2">open this view</a>)</span></figcaption></figure>
+<p class="idea"><b>Idea.</b> A scanned chip can be checked against its HDL: the <code>recover_conf</code> metric says how each placed cell was matched (by cell type and location, with no names), and the link kinds say how the chain runs back to the line.</p>
+<div class="try"><b>Try it.</b> <a class="tryit" href="@silicon-mmuart/?rotate=0&amp;sel=line:187-190&amp;panels=left,right&amp;zoom=1">Open this example in the viewer</a>. Colour by <code>recover_conf</code> or <code>area_um2</code>, then switch the anchor to <code>global</code>.</div>
+</section>
 </main>
 </body>
 </html>

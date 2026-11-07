@@ -390,6 +390,43 @@ guide (example 11).
 
 ![rainbow lines on the lut plane](images/guide/rainbow-1.png)
 
+## Update 5: ASIC planes (silicon flow)
+
+Spec: `docs/specs/2026-11-05-heimdall-design.md` section 2. `heimdall export FLOW_DIR` detects a silicon run (`prov/index.json`
+flow `silicon-*`) and writes an ASIC bundle (`flow` = `silicon`); `heimdall site` takes the same specs (`,lef=FILE` for cell areas;
+default: the workspace sky130 LEF). Input: the flow directory with `prov/` (steps read, map, place, recover; elab for older runs),
+`or/route.def` and optionally `or/s04_global_place.csv`.
+
+- Planes `hdl`, `stdcell`, `die`, `route` (targets common, asic, asic, asic). No `cell` plane: the silicon prov links gates to HDL
+  statements (an older prov links gates to `ir` cells; the exporter composes the chain through their `fine` links).
+- `die`: all DEF components except fill and decap; `x_um`, `y_um` (lower left), `row`, `flipped`, `recover_conf` (CONF rank of the
+  recover step's location_match, -1 = not joined), `legal_shift_um`, `nets`, `area_um2`, `drive`. Manifest `coord.die` and
+  `coord.route`: `{kind: "um", unit: "um", origin, bounds (die), core, rows {count, pitch_um, y0_um, x0_um, x1_um}, flip_y}`;
+  anchor y = `flip_y` - y so the chip reads y up.
+- `route`: nets of the DEF NETS section with a route and two or more instance pins; metrics `wire_um`, `vias`, `layers`,
+  `hpwl_um`, `fanout`. `routes.json` holds the polylines (`[layer, x, y, x, y, ...]` in um), longest nets first, capped at 250000
+  segments. The viewer draws the wires of the selected net or die cell.
+- Anchors: `placement` (final legal place), `global` (cells where global placement left them), `ast`.
+- Metrics carry `target` (asic or common); the manifest lists only metrics of planes present.
+
+### Placement in the silicon flow
+
+**Placement in the silicon flow.** The flow (`tools/silicon/openroad_flow.tcl`, OpenROAD, no Yosys,
+`sky130_fd_sc_hd`) places the cells in these steps. (1) `initialize_floorplan` sizes a square core so the cells fill 25 percent of it
+(utilisation 25, 6 um around the core); a design of one cell or a core below 16 um gets a fixed 30 um core, and the die grows when the pins need a longer edge or
+an edge falls within 0.17 um of a routing track. (2) `tapcell` puts a well-tap cell every 14 um on every row (fixed, never moved); `pdngen`
+builds the power grid. (3) `global_placement -density 0.5`, run twice around `place_pins` (first with `-skip_io`, then with the pins):
+this is OpenROAD's RePlAce, an analytic placer that minimises wirelength under an electrostatic density model (Nesterov-accelerated); cells may overlap and sit off
+the row grid afterwards. (4) `repair_design` resizes cells and inserts repair buffers. (5) `detailed_placement` (OpenDP) legalises the cells into
+rows and sites without overlap; `clock_tree_synthesis` adds clock buffers, `repair_timing -hold` adds hold buffers, each followed by another
+`detailed_placement`. (6) `global_route` (FastRoute) and `detailed_route` (TritonRoute), then fill cells.
+
+The `die` plane shows the **final legal placement**, read from the DEF written at the end (after clock tree, repair and routing; fill cells are left
+out, tap, clock and buffer cells are kept and labelled by their origin). The anchor `global` shows the same cells where global placement left them
+(from the flow's `s04_global_place.csv`; cells inserted later sit at their final place), and the metric `legal_shift_um` is the
+distance each cell moved to be legalised.
+
+
 ## Metrics
 
 Measured by Odin III's BLIF or VPR files, never invented: `fanin`, `fanout`, `logic_level` (LUT depth from

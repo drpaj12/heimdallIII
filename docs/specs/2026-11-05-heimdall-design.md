@@ -67,10 +67,10 @@ not assume LUTs, clusters or a VPR grid. Rules:
   `ast`, `pipeline` and `level` use only links and graph structure and need no change.
 - Metric catalogue entries already name the planes they apply to; add `target` filtering so the UI only offers
   metrics for planes present.
-- `heimdall/targets/asic.py` is a stub in the move: it defines the plane names and column schema as constants
-  and `export_asic(...)` raises `NotImplementedError("TODO: ASIC exporter, after the silicon flow work")`. The
-  exporter is a later lane. Tests only check that the manifest schema accepts an `asic` plane and the viewer
-  renders a hand-made tiny fixture.
+- `heimdall/targets/asic.py` (update 5) reads an Odin III silicon-flow run: the prov step files (read, map, place, recover), `or/route.def`
+  (DEF: die, rows, components, nets with routes), `or/s04_global_place.csv` and the sky130 LEF (cell areas). It writes the planes `stdcell`,
+  `die`, `route` and the anchors `placement` (final legal place) and `global`. `heimdall export` picks the target from `prov/index.json`
+  (`flow` = `silicon-*`). Details: `docs/user/viz.md`, "Update 5". Not built: a `cell` plane (the silicon prov links gates to HDL statements).
 
 ## 3. Static site builder
 
