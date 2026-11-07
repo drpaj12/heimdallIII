@@ -25,14 +25,14 @@
 </head>
 <body>
 <main>
-<h1>How to use Heimdall III</h1>
+<h1>How to use Heimdall III <span class="dim" style="font-size:.6em">@@VERSION@@</span></h1>
 <p class="dim">Worked examples, one per feature, on the benchmarks hosted here. Each has the question it answers, the steps, screenshots
 with what to notice, and a link that opens the viewer in that exact state (the link sets the state through URL parameters, listed in
 <a href="help.html#links-url">the help page</a>). For every control and key, see <a href="help.html">Help</a>; for the benchmarks, the
 <a href="index.html">index</a>.</p>
 <nav id="toc"><b>Examples</b>
 <ol>
-  <li><a href="#update7">What's new (update 7)</a></li>
+  <li><a href="#update7">What's new (v0.7)</a></li>
   <li><a href="#update61">What's new (update 6.1)</a></li>
   <li><a href="#update6">What's new (update 6)</a></li>
   <li><a href="#update5">What's new (update 5)</a></li>
@@ -53,8 +53,9 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 <p>The viewer needs a browser with WebGL. Drag to rotate, right-drag to pan, wheel to zoom, click to select. Click empty space to clear the selection.
 Every picture below is a real screenshot of the viewer on the benchmark named above it, taken with the link beside it.</p>
 <section id="update7" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
-<h2>What's new (update 7)</h2>
+<h2>What's new (v0.7)</h2>
 <ul>
+<li><b>Compare any two selections.</b> In <b>Graph analytics</b>, <i>Compare any two selections</i> signs two selections of one plane and gives GDD agreement and the cosine of log(1 + orbit totals), for the undirected and the directed graphlets. A selection can be the current selection (HDL lines, objects, paths), a snapshot you saved with the button, a group, or a cluster. It runs in the browser; the metric code is Odin III's, ported to JavaScript and pinned to Odin III by tests. The panel shows how many objects each selection has, how many are on the chosen plane, how many have no graphlet data (counted, not signed) and how many are on other planes. Members are signed with their counts on the whole plane graph, so a cluster here can differ a little from the cluster signatures above, which count each cluster on its own subgraph.</li>
 <li><b>Switching activity.</b> The FPGA and silicon pages of three designs (mmuart, verilog_cordic_core, wb_lcd) have a new left-hand section, <b>Switching activity</b> (Bifrost III power). It colours every plane by how often each net is high (static probability), how often it toggles per clock cycle (transition density) and, where Bifrost gives it, power. A table lists the HDL lines by power, and a click on a line selects it as usual. The section names the activity source (here: the design's own testbench run on the post-synthesis netlist in iverilog) and states the limits: the FPGA split per line is a model, the silicon split is per instance, and clock power is a lower bound. Pages without data say so. The details are in <a href="help.html#update7">help</a>.</li>
 </ul>
 </section>

@@ -209,7 +209,7 @@ cluster an update-4 group, lighting all planes and HDL lines), (3) signature com
 the metrics come only from Odin III results in the bundle). Ad hoc selections are signed by the exporter for
 clusters only; this limit is stated in the panel.
 
-### 8.1 Compare any selection in the browser (update 8, 2026-11-07)
+### 8.1 Compare any selection in the browser (v0.7, 2026-11-07)
 
 Decision (Peter 2026-11-07): all Heimdall stays non-dynamic (static site, no server), so any selection is compared
 in the browser (option 1A), not by calling Odin III at view time.
@@ -236,7 +236,7 @@ metric code and is pinned to it by tests. `tools/selcompare_fixture.py` runs Odi
 `tests/data/selcompare/fixture.json`; `tests/js/selcompare.test.mjs` asserts the browser values equal them to 1e-9.
 When Odin III's metric definition changes the fixture is regenerated and the port updated.
 
-## 12. Switching-activity overlay (update 7, 2026-11-07)
+## 12. Switching-activity overlay (v0.7, 2026-11-07)
 
 Purpose: show where a design's testbench makes nets toggle and where the power goes, on every plane and per HDL line
 (RQ: structure and activity as RE hints; measure: static probability, transition density, power in watts). Heimdall

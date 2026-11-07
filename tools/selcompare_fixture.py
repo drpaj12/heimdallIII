@@ -1,10 +1,11 @@
-"""Make tests/data/selcompare/fixture.json: Odin III's own metric values for node subsets of small graphs.
+"""Make tests/data/selcompare/fixture.json: Odin III's own metric values for node subsets.
 
-Needs the Odin III Python binding (see tools/odin3_glet_bridge.py and analytics.find_bridge). Per graph the rows
-come from Odin III graphlet counting; per case two subsets of the nodes are signed (orbit totals + GDD of their
-rows), written as an `odin3-graphlets` signature file and compared by Odin III (`graphlets --compare`, sig.c). The
-JS test (tests/js/selcompare.test.mjs) asserts that web/selcompare.js gives the same numbers. Odin III
-prints these metrics with 6 decimals, so the match is to 5e-7 (rounding of the print), not 1e-9.
+Needs the Odin III Python binding (see tools/odin3_glet_bridge.py and analytics.find_bridge).
+Per graph the rows come from Odin III graphlet counting. Per case two subsets of the nodes are
+signed (orbit totals and GDD of their rows), written as an `odin3-graphlets` signature file and
+compared by Odin III (`graphlets --compare`, sig.c). The JS test tests/js/selcompare.test.mjs
+asserts that web/selcompare.js gives the same numbers. Odin III prints these metrics with 6
+decimals, so the match is to 5e-7 (the rounding of the print), not 1e-9.
 
     PYTHONPATH=. python3 tools/selcompare_fixture.py [--out PATH]
 """
@@ -65,32 +66,59 @@ def subsets(rng: random.Random, n: int) -> list[tuple[list[int], list[int]]]:
 def sig_file(path: Path, mode: str, groups: dict[str, list[list[int]]], n_orb: int) -> None:
     sigs = [analytics.sig_group(name, rows, n_orb) for name, rows in groups.items()]
     path.write_text(
-        json.dumps({"mode": MODES[mode][0], "n_orbits": n_orb, "groups": sigs}, separators=(",", ":")),
+        json.dumps(
+            {"mode": MODES[mode][0], "n_orbits": n_orb, "groups": sigs}, separators=(",", ":")
+        ),
         encoding="utf-8",
     )
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", type=Path, default=ROOT / "tests" / "data" / "selcompare" / "fixture.json")
+    ap.add_argument(
+        "--out", type=Path, default=ROOT / "tests" / "data" / "selcompare" / "fixture.json"
+    )
     out_path = ap.parse_args().out
     bridge = analytics.find_bridge()
     if bridge is None:
         raise SystemExit("no Odin III binding found (set HEIMDALL_ODIN3_ROOT or ODIN3_LIB)")
     rng = random.Random(7)
-    result: dict[str, Any] = {"note": "Odin III metric values for node subsets; made by tools/selcompare_fixture.py", "graphs": [], "cases": []}
+    result: dict[str, Any] = {
+        "note": "Odin III metric values for node subsets; made by tools/selcompare_fixture.py",
+        "graphs": [],
+        "cases": [],
+    }
     with tempfile.TemporaryDirectory(prefix="heimdall-selcmp-") as td:
         for gi, g in enumerate(graphs()):
             mode = g["mode"]
             _, n_orb, directed, size = MODES[mode]
-            rows = bridge.run({"op": "count", "jobs": [{"n": g["n"], "edges": g["edges"], "directed": directed}]})["rows"][0]
-            result["graphs"].append({"name": g["name"], "mode": mode, "n": g["n"], "n_orbits": n_orb, "edges": g["edges"], "rows": rows})
+            rows = bridge.run(
+                {"op": "count", "jobs": [{"n": g["n"], "edges": g["edges"], "directed": directed}]}
+            )["rows"][0]
+            result["graphs"].append(
+                {
+                    "name": g["name"],
+                    "mode": mode,
+                    "n": g["n"],
+                    "n_orbits": n_orb,
+                    "edges": g["edges"],
+                    "rows": rows,
+                }
+            )
             for ci, (a, b) in enumerate(subsets(rng, g["n"])):
                 path = Path(td) / f"{gi}.{ci}.json"
                 sig_file(path, mode, {"A": [rows[i] for i in a], "B": [rows[i] for i in b]}, n_orb)
-                res = bridge.run({"op": "compare", "pairs": [[f"{path}#A", f"{path}#B"]]})["results"][0]
+                res = bridge.run({"op": "compare", "pairs": [[f"{path}#A", f"{path}#B"]]})[
+                    "results"
+                ][0]
                 result["cases"].append(
-                    {"graph": gi, "a": a, "b": b, "gdd_agreement": res["gdd_agreement"], "cosine_log": res["cosine_log"]}
+                    {
+                        "graph": gi,
+                        "a": a,
+                        "b": b,
+                        "gdd_agreement": res["gdd_agreement"],
+                        "cosine_log": res["cosine_log"],
+                    }
                 )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, separators=(",", ":")), encoding="utf-8")
