@@ -130,6 +130,21 @@ class TestInstances(unittest.TestCase):
             self.assertEqual((t["total"], t["written"], t["truncated"]), (5, 2, 1))
             man = json.loads((b / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("lut.u", man["analytics"]["instances"])
+            # every type with a nonzero count has a list; none without
+            index = json.loads((b / "analytics" / "index.json").read_text(encoding="utf-8"))
+            for mk in ("u", "d"):
+                d = json.loads(
+                    (b / "analytics" / f"instances.lut.{mk}.json").read_text(encoding="utf-8")
+                )
+                nonzero = {str(r[0]) for r in index["planes"]["lut"]["graphlet_types"][mk] if r[3]}
+                self.assertEqual(set(d["types"]), nonzero)
+                for t in d["types"].values():
+                    self.assertLessEqual(t["written"], t["max"])
+            # lazy layout: instance files are not listed for preloading in the index or plane data
+            self.assertNotIn("instances", json.dumps(index["planes"]))
+            self.assertTrue(
+                all(len(c["jobs"]) >= 1 for c in fake.calls), "one bridge call per plane and mode"
+            )
 
 
 def _reads_instances(bridge: Any) -> bool:

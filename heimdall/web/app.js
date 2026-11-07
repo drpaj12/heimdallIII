@@ -1958,7 +1958,9 @@ function fillAnTypes() {
   const have = S.man.analytics.instances ?? [];
   const inst = have.includes(`${p}.${m}`);
   $("gttab").innerHTML = "<table><tr><td>type</td><td>nodes</td><td>edges</td><td>count</td></tr>" +
-    av.rareFirst(rows).map((r) => `<tr class="gt" data-g="${r[0]}" style="cursor:pointer"><td>G${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("") + "</table>";
+    av.rareFirst(rows).map((r) => r[3] > 0 && inst
+      ? `<tr class="gt" data-g="${r[0]}" style="cursor:pointer"><td>G${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`
+      : `<tr class="gt0" style="color:#999"><td>G${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("") + "</table>";
   $("gttab").querySelectorAll(".gt").forEach((el) => el.addEventListener("click", () => anInstances(p, m, +el.dataset.g)));
   $("gtinfo").textContent = rows.length ? (inst ? "Click a type to see its instances." : "Counts are from Odin III orbit totals; there is no instance list for this plane and mode in the bundle (too many node sets, or exported without Odin III instances: see the notes above).") : "no graph for this plane";
 }
@@ -1967,7 +1969,7 @@ async function anInstances(p, m, g) {
   if (!have.includes(`${p}.${m}`)) { $("gtinfo").textContent = `no instance file for ${p} (${m}): this bundle was exported without Odin III graphlet instances`; return; }
   const d = (S.an.inst[`${p}.${m}`] ??= await getJson(`analytics/instances.${p}.${m}.json`));
   const t = d.types[String(g)];
-  if (!t) { $("gtinfo").textContent = `instances of G${g} were not exported for ${p} (the rarest types are)`; return; }
+  if (!t) { $("gtinfo").textContent = `instances of G${g} were not exported for ${p} (no instance of it on this plane)`; return; }
   const { colours, count } = av.dsatur(av.conflicts(t.instances, d.edges));
   const cls = av.classNodes(t.instances, colours, count), ids = S.planes[p].ids;
   clearGroups(S.groups);
