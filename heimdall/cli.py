@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
 import sys
 from pathlib import Path
 
-from heimdall import export, flows, serve, site
+from heimdall import analytics, export, flows, serve, site
+from heimdall.targets import asic
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -53,6 +55,29 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     st.add_argument(
         "--note", default="", metavar="HTML", help="paragraph for the index (with --extend)"
     )
+    an = vsub.add_parser(
+        "analytics",
+        help="add graph analytics (graphlet signatures, clusterings) to a bundle or to every "
+        "bundle of a built site",
+    )
+    an.add_argument("path", metavar="BUNDLE_OR_SITE_DIR")
+    an.add_argument("--lef", metavar="FILE", help="sky130_fd_sc_hd.lef (default: workspace PDK)")
+    an.add_argument("--odin3-python", metavar="PYTHON", help="Python with the Odin III binding")
+    an.add_argument(
+        "--silicon-flow",
+        action="append",
+        default=[],
+        metavar="SLUG=FLOW_DIR",
+        help="silicon run of a page built before edges/net.json existed (reads its DEF)",
+    )
+    an.add_argument("--only", metavar="SLUG", action="append", default=[], help="site pages to do")
+    rf = vsub.add_parser(
+        "refresh", help="bring a built site up to this viewer (assets, pages, help); no flow is run"
+    )
+    rf.add_argument("site", metavar="SITE_DIR")
+    rf.add_argument(
+        "--note", default="", metavar="HTML", help="paragraph replacing the Update note"
+    )
     sv = vsub.add_parser("serve", help="serve the viewer and one bundle on 127.0.0.1")
     sv.add_argument("bundle", metavar="BUNDLE_DIR")
     sv.add_argument("--port", type=int, default=8765)
@@ -64,6 +89,12 @@ def run(args: argparse.Namespace) -> int:
         return _export(args)
     if args.viz_command == "site":
         return _site(args)
+    if args.viz_command == "refresh":
+        n = site.refresh_site(Path(args.site), args.note)
+        print(f"refreshed {n} pages in {args.site}")
+        return 0
+    if args.viz_command == "analytics":
+        return _analytics(args)
     return _serve(args)
 
 
@@ -124,4 +155,34 @@ def _site(args: argparse.Namespace) -> int:
         print(f"heimdall site: {e}", file=sys.stderr)
         return 2
     print(f"wrote {args.out}: {len(rows)} benchmarks")
+    return 0
+
+
+def _analytics(args: argparse.Namespace) -> int:
+    root = Path(args.path)
+    bridge = analytics.find_bridge(Path(args.odin3_python) if args.odin3_python else None)
+    if bridge is None:
+        print(
+            "heimdall analytics: no Odin III binding found (set HEIMDALL_ODIN3_ROOT)",
+            file=sys.stderr,
+        )
+        return 2
+    bundles = (
+        [root]
+        if (root / "manifest.json").is_file()
+        else sorted(m.parent for m in root.glob("*/bundle/manifest.json"))
+    )
+    for b in bundles:
+        slug = b.parent.name if b != root else b.name
+        if args.only and slug not in args.only:
+            continue
+        for item in args.silicon_flow:
+            sl, _, fd = item.partition("=")
+            if sl == slug:
+                asic.write_net_edges(b, Path(fd), Path(args.lef) if args.lef else None)
+        packed = bool(json.loads((b / "manifest.json").read_text(encoding="utf-8")).get("parts"))
+        res = analytics.analyse_bundle(b, bridge)
+        if packed:
+            analytics.pack_new(b)
+        print(f"{slug}: {res[0] if res else None} timing {json.dumps(res[1]) if res else ''}")
     return 0

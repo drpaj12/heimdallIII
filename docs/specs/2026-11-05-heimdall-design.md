@@ -165,3 +165,46 @@ Yggdrasil PR; report.
 1. `heimdall_base_url = https://drpeterjamieson.com/RESEARCH/HEIMDALL/`, Heimdall's own directory next to the Mimir
    material on Peter's webpage. Peter uploads the built site directory there; nothing is uploaded by the tools.
 2. Not published to PyPI. Local package `heimdall`, project name heimdallIII.
+
+## 8. Graph analytics (update 6, 2026-11-06)
+
+Purpose: graph analysis of netlist structure linked to HDL (Peter 2026-11-06); research question: are structure
+signatures usable as reverse-engineering hints. Measure: per page the analytics load in under 30 s, 0 console
+errors, and every cluster, orbit or signature selection lights objects on all planes and HDL lines.
+
+Counting and metrics belong to Odin III and are never reimplemented here. The exporter calls Odin III through a
+bridge program (`tools/odin3_glet_bridge.py`), run as a subprocess with the Python that has the Odin III binding
+(`--odin3-python`, default `$HEIMDALL_ODIN3_PYTHON` or the Odin III checkout's `.venv`) and `ODIN3_LIB`. The
+`heimdall` package never imports the binding. The bridge reads one JSON job on stdin and writes the result on
+stdout: `count` (edge list to orbit rows, `odin3_graphlets_count`) and `compare` (two signature files,
+`graphlets --compare`: GDD agreement and cosine of log(1 + orbit totals)). Heimdall writes only the signature
+file layout of schema `odin3-graphlets` (`mode`, `n_orbits`, `groups[{name, reported, orbit_totals, gdd}]`); the
+GDD histogram is a count of nodes per (orbit, count) taken from the rows Odin III returned.
+
+Graphs (nodes = the plane's objects, edges = driver to sink, simple graph, self loops dropped):
+`lut` (BLIF nets), `placed` (BLIF nets over atoms incl. pads), `clb` (LUT edges lifted through the pack links),
+`die` and `stdcell` (DEF nets; driver from the LEF pin direction, else the pin named X, Y, Q, Q_N, SUM, COUT),
+`ddg`, `cfg`, `stg` (write_graph edges), `cell` when the plane has no edges is skipped with a note. Two
+signatures per node: undirected size 5 (73 orbits, Przulj) and directed size 4 (129 orbits, Sarajlic style, Odin
+III numbering). The `--exclude-global` rule of the pass (nets of fan-out 16 or more give no edges) is applied
+to the netlist graphs before counting and recorded.
+
+Bundle files (all optional; absent = no analytics): `analytics/index.json` (parameters, seed, per plane: node
+and edge counts, count seconds, features, clusterings, signature sets, compare matrices, notes) and
+`analytics/<plane>.json` (`ids` order = plane order; `gdv_u`, `gdv_d` rows of ints; `pos` x,y when the plane has
+placement). Also `analytics/partition.<plane>.<feature>.<alg>.tsv`: `name<TAB>cluster` plus a `# params` header,
+importable into Mimir's partition table (file only).
+
+Clustering (stdlib, seed 20261106 in the manifest): k-means (k-means++, k in 2, 4, 8, 16, 32 capped by the
+number of distinct vectors; silhouette per k on at most 1500 sampled points; default = best silhouette) and
+affinity propagation (similarity = negative squared distance, preference = median, damping 0.9, 200 iterations,
+on distinct vectors weighted by multiplicity; cap 400 distinct vectors: if more, the 400 most frequent are
+clustered and every other vector joins the nearest exemplar; stated on the page). Features: undirected GDV
+log1p, directed GDV log1p, x/y (placement planes `placed`, `clb`, `die`).
+
+Viewer: panel "Graph analytics" with (1) orbit heat (plane colour by log1p of one orbit, mode u or d), (2)
+clustering (feature, algorithm, k; cluster colours from the rainbow palette, list with sizes; a click makes the
+cluster an update-4 group, lighting all planes and HDL lines), (3) signature compare of two named groups
+(clusters of the shown clustering plus the current update-4 groups are signed on demand only when precomputed;
+the metrics come only from Odin III results in the bundle). Ad hoc selections are signed by the exporter for
+clusters only; this limit is stated in the panel.
