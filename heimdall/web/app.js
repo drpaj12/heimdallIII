@@ -2038,7 +2038,7 @@ function actTotals(a) {
 }
 function actLines(a) {
   const rows = a.lines.slice(0, 30).map((r, k) => `<div class="actl" data-k="${k}" style="cursor:pointer;font-size:11px">${esc(r[0])}:${r[1]} &middot; ${r[2]} nets or cells &middot; P(1) ${r[3] === null ? "-" : r[3].toFixed(3)} &middot; ${r[4] === null ? "-" : r[4].toPrecision(3)} toggles/cycle &middot; ${r[5] === null ? "-" : r[5].toPrecision(3)} uW</div>`);
-  return `<div class="sub">${a.line_power === "model" ? "power per line is a model (see below)" : "power per line is per instance"}; top ${rows.length} lines by power, then activity</div>${rows.join("")}`;
+  return `<div class="sub">${a.line_power === "model" ? "power per line is a model (see below)" : a.line_power === "not available" ? "power per line: not available for this design (activity per line is shown)" : "power per line is per instance"}; top ${rows.length} lines${a.line_power === "not available" ? "" : " by power, then"} by activity</div>${rows.join("")}`;
 }
 function buildActUi() {
   const el = $("actbody"), a = S.act?.data;

@@ -108,6 +108,21 @@ class TestActivity(unittest.TestCase):
             with self.assertRaises(activity.ActivityError):
                 activity.Dataset(d)
 
+    def test_asic_line_power_not_available(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            d = write_data(Path(td) / "d")
+            pj = json.loads((d / "power.json").read_text(encoding="utf-8"))
+            pj["targets"]["asic"] = {"total_w": 0.001}
+            (d / "power.json").write_text(json.dumps(pj), encoding="utf-8")
+            ds = activity.Dataset(d)
+            self.assertTrue(ds.has_line_power("fpga"))
+            self.assertFalse(ds.has_line_power("asic"))
+            pj["by_line_asic"] = [
+                {"file": "a.v", "line": 1, "asic_dyn_w": 1e-6, "asic_static_w": 0}
+            ]
+            (d / "power.json").write_text(json.dumps(pj), encoding="utf-8")
+            self.assertTrue(activity.Dataset(d).has_line_power("asic"))
+
     def test_first_span(self) -> None:
         self.assertEqual(activity.first_span([["x/a.v", "3.1-5.2"]]), ("a.v", 3, 5))
         self.assertIsNone(activity.first_span([]))
