@@ -203,6 +203,21 @@ class TestRealInstances(unittest.TestCase):
             analytics.INSTANCE_MAX = old
 
 
+class TestBridgeErrors(unittest.TestCase):
+    def test_work_bound_says_why(self) -> None:
+        real = analytics.find_bridge()
+        if real is None:
+            self.skipTest("no Odin III binding")
+        star = [(0, i) for i in range(1, 40)]  # a hub: C(39, 4) five-node node sets
+        job = {
+            "op": "count",
+            "jobs": [{"n": 40, "edges": star, "directed": False, "max_work": 1000}],
+        }
+        with self.assertRaises(RuntimeError) as cm:
+            real.run(job)
+        self.assertIn("connected node sets", str(cm.exception))
+
+
 class TestInstanceLimits(unittest.TestCase):
     def test_a_huge_plane_gets_a_note_not_a_run(self) -> None:
         real = analytics.find_bridge()

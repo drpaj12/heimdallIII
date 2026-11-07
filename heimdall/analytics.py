@@ -66,7 +66,11 @@ class Bridge:
         self.seconds += time.time() - t0
         self.calls += 1
         if p.returncode != 0:
-            raise RuntimeError(f"odin3 bridge failed: {p.stderr.strip().splitlines()[-1:]}")
+            lines = p.stderr.strip().splitlines()
+            # Odin III logs why a count stops (work bound: hub nodes make too many node sets) before
+            # the exception line; keep that line.
+            why = [ln for ln in lines if "connected node sets" in ln] or lines[-1:]
+            raise RuntimeError(f"odin3 bridge failed: {why}")
         out: dict[str, Any] = json.loads(p.stdout)
         return out
 
