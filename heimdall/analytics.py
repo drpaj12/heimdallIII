@@ -66,7 +66,11 @@ class Bridge:
         self.seconds += time.time() - t0
         self.calls += 1
         if p.returncode != 0:
-            raise RuntimeError(f"odin3 bridge failed: {p.stderr.strip().splitlines()[-1:]}")
+            lines = p.stderr.strip().splitlines()
+            # Odin III logs why a count stops (work bound: hub nodes make too many node sets) before
+            # the exception line; keep that line.
+            why = [ln for ln in lines if "connected node sets" in ln] or lines[-1:]
+            raise RuntimeError(f"odin3 bridge failed: {why}")
         out: dict[str, Any] = json.loads(p.stdout)
         return out
 
@@ -80,7 +84,7 @@ def find_bridge(python: Path | None = None) -> Bridge | None:
     )
     root = Path(os.environ.get("HEIMDALL_ODIN3_ROOT", str(ODIN3_ROOT)))
     py = py or root / ".venv" / "bin" / "python"
-    lib = Path(os.environ.get("ODIN3_LIB", str(root / "build" / "rel-main3" / "libodin3.so")))
+    lib = Path(os.environ.get("ODIN3_LIB", str(root / "build" / "rel-main4" / "libodin3.so")))
     py_dir = root / "plugins" / "python"
     if py.is_file() and lib.is_file() and (py_dir / "odin3.py").is_file():
         return Bridge(py, py_dir, lib)
@@ -535,6 +539,9 @@ def analyse_bundle(
     (bundle / "manifest.json").write_text(
         json.dumps(man, sort_keys=True, indent=1) + "\n", encoding="utf-8"
     )
+    t1 = time.time()
+    add_instances(bundle, bridge)
+    timing["instances_s"] = round(time.time() - t1, 2)
     return entry, timing
 
 
@@ -564,6 +571,10 @@ def pack_new(bundle: Path, part_bytes: int = 40_000_000) -> None:
 
 INSTANCE_TYPES = 6  # the rarest graphlet types of a plane and mode that get an instance list
 INSTANCE_MAX = 400  # instances kept per type; the file says when a type was cut
+# One Odin III run enumerates every connected node set of the plane graph once per type. A plane
+# and mode with more sets than this (about 30 s per type) gets no instance list; the index notes
+# it (the criterion is the counts, not the clock, so bundles still rebuild byte-identically).
+INSTANCE_MAX_SETS = 300_000_000
 
 
 class Runner(Protocol):
@@ -573,20 +584,33 @@ class Runner(Protocol):
 def add_instances(bundle: Path, bridge: Runner) -> list[str]:
     """Ask Odin III for the instances of the rarest graphlet types of every analysed plane and mode,
     write analytics/instances.<plane>.<mode>.json (plane object indices, plus the plane's edge list
-    for the viewer's conflict graph). Needs the Odin III `graphlets --instances` addition (spec
-    2026-11-06-odin3-graphlet-instances.md): the bridge op `instances` fails without it. Returns the
-    "<plane>.<mode>" names written, which are listed in manifest["analytics"]["instances"]."""
+    for the viewer's conflict graph). Needs Odin III `graphlets --instances` (spec
+    2026-11-06-odin3-graphlet-instances.md; rel-main4 or later). A plane and mode with more than
+    INSTANCE_MAX_SETS connected node sets, or one the bridge fails on, is skipped with a note in
+    analytics/index.json. Returns the "<plane>.<mode>" names written, which are listed in
+    manifest["analytics"]["instances"]."""
     rd = BundleReader(bundle)
     graphs = {g.plane: g for g in bundle_graphs(rd)[0]}
-    index = json.loads((bundle / "analytics" / "index.json").read_text(encoding="utf-8"))
+    ipath = bundle / "analytics" / "index.json"
+    index = json.loads(ipath.read_text(encoding="utf-8"))
     written: list[str] = []
     for plane, info in sorted(index["planes"].items()):
         g = graphs.get(plane)
         if g is None:
             continue
         for mk, (mode, _n_orb, directed, size) in MODES.items():
-            rows = [r for r in info["graphlet_types"][mk] if r[3] > 0]
+            table = info["graphlet_types"][mk]
+            sets = sum(r[3] for r in table)
+            rows = [r for r in table if r[3] > 0]
             rare = sorted(rows, key=lambda r: (r[3], r[0]))[:INSTANCE_TYPES]
+            if not rare:
+                continue
+            if sets > INSTANCE_MAX_SETS:
+                index["notes"].append(
+                    f"{plane} ({mode}): no instance list, {sets} connected node sets "
+                    f"(limit {INSTANCE_MAX_SETS})"
+                )
+                continue
             jobs = [
                 {
                     "n": len(g.ids),
@@ -598,9 +622,11 @@ def add_instances(bundle: Path, bridge: Runner) -> list[str]:
                 }
                 for r in rare
             ]
-            if not jobs:
+            try:
+                res = bridge.run({"op": "instances", "jobs": jobs})["results"]
+            except RuntimeError as e:
+                index["notes"].append(f"{plane} ({mode}): no instance list: {e}")
                 continue
-            res = bridge.run({"op": "instances", "jobs": jobs})["results"]
             types = {
                 str(r[0]): {
                     "total": x["total"],
@@ -622,6 +648,9 @@ def add_instances(bundle: Path, bridge: Runner) -> list[str]:
                 json.dumps(doc, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
             )
             written.append(name)
+    ipath.write_text(
+        json.dumps(index, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
+    )
     man = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
     man["analytics"]["instances"] = written
     (bundle / "manifest.json").write_text(

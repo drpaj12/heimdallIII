@@ -5,8 +5,8 @@ import { signature, gddAgreement, cosineLog, selectionSignature, compareSignatur
 
 const fx = JSON.parse(readFileSync(new URL("../data/selcompare/fixture.json", import.meta.url), "utf8"));
 
-// Odin III prints the metrics with 6 decimals ("%.6f"), so a faithful port is within half a unit of the last digit.
-const PRINT_TOL = 5e-7 + 1e-12;
+// The fixture holds Odin III's metrics at full double precision (odin3.graphlet_similarity), so a faithful port agrees to 1e-9.
+const TOL = 1e-9;
 
 test("browser metrics equal Odin III's on every fixture case", () => {
   assert.ok(fx.cases.length >= 30);
@@ -17,10 +17,8 @@ test("browser metrics equal Odin III's on every fixture case", () => {
     const r = compareSignatures(a, b);
     maxG = Math.max(maxG, Math.abs(r.gdd - c.gdd_agreement));
     maxC = Math.max(maxC, Math.abs(r.cosine - c.cosine_log));
-    assert.ok(Math.abs(r.gdd - c.gdd_agreement) <= PRINT_TOL, `gdd ${g.name} ${r.gdd} vs ${c.gdd_agreement}`);
-    assert.ok(Math.abs(r.cosine - c.cosine_log) <= PRINT_TOL, `cosine ${g.name} ${r.cosine} vs ${c.cosine_log}`);
-    assert.equal(r.gdd.toFixed(6), c.gdd_agreement.toFixed(6));
-    assert.equal(r.cosine.toFixed(6), c.cosine_log.toFixed(6));
+    assert.ok(Math.abs(r.gdd - c.gdd_agreement) <= TOL, `gdd ${g.name} ${r.gdd} vs ${c.gdd_agreement}`);
+    assert.ok(Math.abs(r.cosine - c.cosine_log) <= TOL, `cosine ${g.name} ${r.cosine} vs ${c.cosine_log}`);
   }
   console.log(`max abs diff: gdd ${maxG.toExponential(2)}, cosine ${maxC.toExponential(2)}`);
 });

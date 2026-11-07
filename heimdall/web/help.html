@@ -30,6 +30,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
 
 <nav id="toc"><b>Contents</b>
 <ol>
+  <li><a href="#update8">What's new (v0.8)</a></li>
   <li><a href="#update7">What's new (v0.7)</a></li>
   <li><a href="#update6">What's new (update 6)</a></li>
   <li><a href="#update5">What's new (update 5)</a></li>
@@ -50,6 +51,15 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
 
+<h2 id="update8">What's new (v0.8): graphlet instances</h2>
+<p>The <b>Graph analytics</b> section lists the graphlet types of a plane and mode (undirected: Przulj's 30 patterns of 2 to 5 nodes; directed: 40 patterns of 2 to 4 nodes), rare ones first, with their counts
+from Odin III. Click a type to see its instances.</p>
+<ul>
+<li><b>Which types.</b> The six rarest types of each plane and mode have an instance list, because the rare patterns are the informative ones. Other rows show the count only; a click says so.</li>
+<li><b>Colours.</b> Two instances conflict when they share a node or when an edge joins a node of one to a node of the other. Heimdall colours the conflicts with DSatur (Brelaz 1979), a greedy map-colouring method, so touching instances get different colours. The legend gives the number of colours used; with more than 8 the colours repeat. A node shared by instances of different colours is drawn as a pie of those colours.</li>
+<li><b>Never silent.</b> The line under the table reads "G7: 400 of 1234 instances (cut at 400, not all shown)" when a list was cut; the total is always Odin III's exact count (the enumeration continues past the cut). Without a list in the bundle, the line says which Odin III is needed (rel-main4 or later).</li>
+<li><b>Where the numbers come from.</b> The instances are Odin III's: the same enumeration as the orbit counts, so the number of instances of a type equals the orbit total divided by the orbit size (checked by Odin III's tests and by Heimdall's test on a real bundle). The compare-any-selection port is now pinned to Odin III's full-precision metrics (1e-9).</li>
+</ul>
 <h2 id="update7">What's new (v0.7): switching activity (Bifrost III power)</h2>
 <p>The left-hand section <b>Switching activity</b> shows what Bifrost III measured when it ran the design's own testbench. Heimdall draws the numbers as given; it does not
 recompute activity or power. Three designs have data, on both their FPGA and their silicon pages: mmuart, verilog_cordic_core and wb_lcd. Every other page says that it has none.</p>
