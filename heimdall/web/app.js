@@ -75,7 +75,7 @@ export async function loadBundle() {
     S.lutAt = new Map(lut.ids.map((id, i) => [id, i]));
     S.lutByName = new Map(lut.ids.map((id, i) => [id.slice(id.indexOf("/") + 1), i]));
   }
-  if (S.man.analytics) S.an = { index: await getJson("analytics/index.json"), data: {}, cur: null, rank: {} };
+  if (S.man.analytics) S.an = { index: await getJson("analytics/index.json"), data: {}, cur: null, rank: {}, inst: {} };
   await loadAnchor(S.man.anchors.includes("placement") ? "placement" : S.man.anchors[0]);
 }
 
@@ -1885,6 +1885,30 @@ function showAnSim() {
   $("ansres").innerHTML = `<table><tr><td>GDD agreement</td><td>${r.gdd.toFixed(4)}</td></tr><tr><td>cosine of log(1 + orbit totals)</td><td>${r.cosine.toFixed(4)}</td></tr><tr><td>nodes</td><td>${r.na} and ${r.nb}</td></tr></table>` +
     `<div class="sub">${esc(sig.mode)}; Odin III graphlets --compare on the signatures of the two clusters (orbit totals and GDD, counted on each cluster's own subgraph).</div>`;
 }
+// graphlet types of a plane and mode, rare first; a click shows the instances (when the exporter wrote them)
+function fillAnTypes() {
+  const p = $("gtp").value, m = $("gtm").value, rows = S.an.index.planes[p]?.graphlet_types?.[m] ?? [];
+  const have = S.man.analytics.instances ?? [];
+  const inst = have.includes(`${p}.${m}`);
+  $("gttab").innerHTML = "<table><tr><td>type</td><td>nodes</td><td>edges</td><td>count</td></tr>" +
+    av.rareFirst(rows).map((r) => `<tr class="gt" data-g="${r[0]}" style="cursor:pointer"><td>G${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("") + "</table>";
+  $("gttab").querySelectorAll(".gt").forEach((el) => el.addEventListener("click", () => anInstances(p, m, +el.dataset.g)));
+  $("gtinfo").textContent = rows.length ? (inst ? "Click a type to see its instances." : "Counts are from Odin III orbit totals; the instance list of this plane and mode is not in the bundle (needs Odin III graphlets --instances).") : "no graph for this plane";
+}
+async function anInstances(p, m, g) {
+  const have = S.man.analytics.instances ?? [];
+  if (!have.includes(`${p}.${m}`)) { $("gtinfo").textContent = `no instance file for ${p} (${m}): needs Odin III graphlets --instances, not built yet`; return; }
+  const d = (S.an.inst[`${p}.${m}`] ??= await getJson(`analytics/instances.${p}.${m}.json`));
+  const t = d.types[String(g)];
+  if (!t) { $("gtinfo").textContent = `instances of G${g} were not exported for ${p} (the rarest types are)`; return; }
+  const { colours, count } = av.dsatur(av.conflicts(t.instances, d.edges));
+  const cls = av.classNodes(t.instances, colours, count), ids = S.planes[p].ids;
+  clearGroups(S.groups);
+  cls.forEach((nodes) => nodes.forEach((n, k) => (k ? addToCurrent : addGroup)(S.groups, ids[n])));
+  applyGroups();
+  $("gtinfo").textContent = `G${g}: ${t.written} of ${t.total} instances` + (t.truncated ? ` (cut at ${t.max}, not all shown)` : "") +
+    `; map colouring needs ${count} colour${count === 1 ? "" : "s"}` + (count > 8 ? " (more than 8: colours repeat)" : "") + "; shared nodes are pies.";
+}
 function buildAnalyticsUi() {
   $("ansec").style.display = "block";
   const ix = S.an.index, ps = anPlanes();
@@ -1900,6 +1924,9 @@ function buildAnalyticsUi() {
   for (const id of ["ansp", "ansm"]) $(id).addEventListener("change", fillAnSig);
   for (const id of ["ansa", "ansb"]) $(id).addEventListener("change", showAnSim);
   fillAnSig();
+  $("gtp").innerHTML = ps.map((p) => `<option>${p}</option>`).join("");
+  for (const id of ["gtp", "gtm"]) $(id).addEventListener("change", fillAnTypes);
+  fillAnTypes();
   const sil = ps.map((p) => {
     const r = S.an.index.planes[p].clusterings.filter((x) => x.feature === "gdv_u" && x.alg === "kmeans");
     return `${p}: ` + r.map((x) => `k${x.k} ${x.silhouette}`).join(", ");
@@ -2075,7 +2102,7 @@ async function main() {
   loop();
   try { await applyUrl(parseQuery(location.search)); } catch (e) { console.error("deep link:", e); }
   document.body.dataset.ready = "1";
-  window.__o3viz = { S, groupClick, anOrbitHeat, anPickClustering, anClusterGroup, fillAnList, setBits: (on) => { S.bits = on; $("bits").checked = on; refreshAll(); }, selectEdge, showGraph, scoapColour, drawGraphs, khopEdges, changeAnchor, selectCell, showCircuit, characterize, setCluster: (k) => { $("csrc").value = k; $("csrc").dispatchEvent(new Event("change")); }, setCompare: (on, k) => { $("ccompare").checked = on; if (k) $("csrc2").value = k; showCircuit(); }, togglePanel, panelState: () => ({ ...panels }), select, selectBus, tierCounts, setFF: (m) => { S.ff = m; $("ffmode").value = m; refreshAll(); }, selectLines, planeCounts, coverage, focusPlane, soloPlane, showPath, updateCone, markLines, setCone: async (dir, depth) => { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = dir; $("conedepth").value = String(depth); await updateCone(); markLines(); }, marksOf: () => Object.fromEntries([...marks].map(([f, m]) => [f, Object.fromEntries(m)])), cam: () => ({ target: controls.target.toArray(), pos: camera.position.toArray() }), wheelAt: (x, y, dy) => wheelZoom({ preventDefault() {}, clientX: x, clientY: y, deltaY: dy, deltaMode: 0 }), discover, setView, setGroupMode, discoverMatrix, brushAll: (p) => { S.brush = new Set(S.planes[p].ids.slice(0, 30)); S.core = new Set(); refreshAll(); },
+  window.__o3viz = { S, groupClick, anOrbitHeat, anPickClustering, anInstances, anClusterGroup, fillAnList, setBits: (on) => { S.bits = on; $("bits").checked = on; refreshAll(); }, selectEdge, showGraph, scoapColour, drawGraphs, khopEdges, changeAnchor, selectCell, showCircuit, characterize, setCluster: (k) => { $("csrc").value = k; $("csrc").dispatchEvent(new Event("change")); }, setCompare: (on, k) => { $("ccompare").checked = on; if (k) $("csrc2").value = k; showCircuit(); }, togglePanel, panelState: () => ({ ...panels }), select, selectBus, tierCounts, setFF: (m) => { S.ff = m; $("ffmode").value = m; refreshAll(); }, selectLines, planeCounts, coverage, focusPlane, soloPlane, showPath, updateCone, markLines, setCone: async (dir, depth) => { $("pathsrc").value = "cone"; showPathPanel(); S.coneOn = true; $("conedir").value = dir; $("conedepth").value = String(depth); await updateCone(); markLines(); }, marksOf: () => Object.fromEntries([...marks].map(([f, m]) => [f, Object.fromEntries(m)])), cam: () => ({ target: controls.target.toArray(), pos: camera.position.toArray() }), wheelAt: (x, y, dy) => wheelZoom({ preventDefault() {}, clientX: x, clientY: y, deltaY: dy, deltaMode: 0 }), discover, setView, setGroupMode, discoverMatrix, brushAll: (p) => { S.brush = new Set(S.planes[p].ids.slice(0, 30)); S.core = new Set(); refreshAll(); },
     setEdges: async (m, h) => { S.edgeMode = m; S.hops = h ?? 1; await ensureEdges(); drawEdges(); }, setMorph: (a, b, m) => { S.morph = { a, b, m }; refreshAll(); }, addExpr, addAgg, setHeight: (n) => { S.height = n; $("height").value = n; refreshAll(); },
     setAnchor: async (n) => { $("anchor").value = n; $("anchor").dispatchEvent(new Event("change")); }, setColour,
     setSize: (n) => { S.size = n; $("size").value = n; refreshAll(); }, stop: () => { controls.autoRotate = false; } };

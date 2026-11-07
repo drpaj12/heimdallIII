@@ -71,6 +71,13 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help="silicon run of a page built before edges/net.json existed (reads its DEF)",
     )
     an.add_argument("--only", metavar="SLUG", action="append", default=[], help="site pages to do")
+    rf = vsub.add_parser(
+        "refresh", help="bring a built site up to this viewer (assets, pages, help); no flow is run"
+    )
+    rf.add_argument("site", metavar="SITE_DIR")
+    rf.add_argument(
+        "--note", default="", metavar="HTML", help="paragraph replacing the Update note"
+    )
     sv = vsub.add_parser("serve", help="serve the viewer and one bundle on 127.0.0.1")
     sv.add_argument("bundle", metavar="BUNDLE_DIR")
     sv.add_argument("--port", type=int, default=8765)
@@ -82,6 +89,10 @@ def run(args: argparse.Namespace) -> int:
         return _export(args)
     if args.viz_command == "site":
         return _site(args)
+    if args.viz_command == "refresh":
+        n = site.refresh_site(Path(args.site), args.note)
+        print(f"refreshed {n} pages in {args.site}")
+        return 0
     if args.viz_command == "analytics":
         return _analytics(args)
     return _serve(args)

@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from heimdall import analytics
 
@@ -87,6 +88,13 @@ class TestBundle(unittest.TestCase):
             for i in range(len(sig["groups"])):
                 self.assertEqual(sig["gdd_agreement"][i][i], 1.0)
                 self.assertEqual(sig["cosine_log"][i][i], 1.0)
+            types = {g: (n, e, c) for g, n, e, c in info["graphlet_types"]["u"]}
+            # the path a-b-c-d-e holds 4 edges, 3 paths of 3 nodes, 2 of 4 nodes, 1 of 5 nodes
+            self.assertEqual(types[0], (2, 1, 4))
+            self.assertEqual(types[1], (3, 2, 3))
+            self.assertEqual(types[2], (3, 3, 0))
+            self.assertEqual([c for g, (n, e, c) in types.items() if n == 4 and e == 3 and c], [2])
+            self.assertEqual(sum(c for n, e, c in types.values() if n == 5), 1)
             self.assertTrue((b / "analytics" / "partition.lut.gdv_u.kmeans.tsv").is_file())
             man = json.loads((b / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(man["analytics"]["planes"], ["lut"])
@@ -94,3 +102,35 @@ class TestBundle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeBridge:
+    """Stands in for the bridge: canned instances (the Odin III addition is not released)."""
+
+    calls: list[dict[str, Any]]
+
+    def __init__(self) -> None:
+        self.calls = []
+
+    def run(self, job: dict[str, Any]) -> dict[str, Any]:
+        self.calls.append(job)
+        return {"results": [{"total": 5, "instances": [[0, 1, 2], [1, 2, 3]]} for _ in job["jobs"]]}
+
+
+class TestInstances(unittest.TestCase):
+    def test_add_instances_with_fake_bridge(self) -> None:
+        real = analytics.find_bridge()
+        if real is None:
+            self.skipTest("no Odin III binding for the signature step")
+        with tempfile.TemporaryDirectory() as td:
+            b = tiny_bundle(Path(td) / "b")
+            analytics.analyse_bundle(b, real)
+            fake = FakeBridge()
+            names = analytics.add_instances(b, fake)
+            self.assertIn("lut.u", names)
+            doc = json.loads((b / "analytics" / "instances.lut.u.json").read_text(encoding="utf-8"))
+            self.assertEqual(doc["edges"], [[0, 1], [1, 2], [2, 3], [3, 4]])
+            t = doc["types"]["1"]
+            self.assertEqual((t["total"], t["written"], t["truncated"]), (5, 2, 1))
+            man = json.loads((b / "manifest.json").read_text(encoding="utf-8"))
+            self.assertIn("lut.u", man["analytics"]["instances"])

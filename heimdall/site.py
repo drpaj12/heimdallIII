@@ -327,3 +327,30 @@ def build_site(
         encoding="utf-8",
     )
     return rows
+
+
+def refresh_site(site: Path, note: str = "") -> int:
+    """Bring a built site up to this viewer without re-running any flow: the shared assets, the
+    viewer page of every benchmark, help.html and guide.html are rewritten; the bundles and the
+    index rows stay.
+    `note` replaces the "Update N" paragraph of the index. Returns the number of pages refreshed."""
+    copy_assets(site)
+    viewer = _viewer_page((WEB / "index.html").read_text(encoding="utf-8"))
+    pages = sorted(p for p in site.iterdir() if (p / "bundle" / "manifest.json").is_file())
+    for p in pages:
+        (p / "index.html").write_text(viewer, encoding="utf-8")
+    (site / "help.html").write_text(
+        _root_page((WEB / "help.html").read_text(encoding="utf-8")), encoding="utf-8"
+    )
+    (site / "guide.html").write_text(
+        guide_page((WEB / "guide.html").read_text(encoding="utf-8"), {p.name for p in pages}),
+        encoding="utf-8",
+    )
+    if note:
+        idx = site / "index.html"
+        text = idx.read_text(encoding="utf-8")
+        text = re.sub(r"<p class=\"dim\"><b>Update \d+</b>.*?</p>\n", "", text, flags=re.S)
+        idx.write_text(
+            text.replace('<p class="nav">', note + '\n<p class="nav">', 1), encoding="utf-8"
+        )
+    return len(pages)

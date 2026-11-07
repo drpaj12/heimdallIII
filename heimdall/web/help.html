@@ -30,6 +30,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
 
 <nav id="toc"><b>Contents</b>
 <ol>
+  <li><a href="#update6">What's new (update 6)</a></li>
   <li><a href="#update5">What's new (update 5)</a></li>
   <li><a href="#update4">What's new (update 4)</a></li>
   <li><a href="#planes">What you are looking at: the planes</a></li>
@@ -47,6 +48,33 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#limits">Known limits per plane</a></li>
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
+
+<h2 id="update6">What's new (update 6): graph analytics (graphlet signatures and clusterings)</h2>
+<p>A new left-hand section, <b>Graph analytics</b>, treats the netlist of each plane as a graph and asks what its structure looks like. The counting is done by
+Odin III (its graphlet counter); Heimdall only draws it. The panel appears on pages whose bundle has analytics.</p>
+<ul>
+<li><b>Graphlets and orbits.</b> A graphlet is a small connected piece of a graph (2 to 5 nodes undirected; 2 to 4 nodes directed). A node sits in some position
+(orbit) of each piece it belongs to. The vector of how many times a node sits at each orbit is its <i>graphlet degree vector</i> (GDV). Two sets: undirected (73 orbits,
+Przulj 2007) and directed (129 orbits, in the style of Sarajlic et al. 2016; the numbers are Odin III's own). Wires with 16 or more sinks (clocks, resets) are left
+out before counting, as Odin III's <code>--exclude-global</code> does.</li>
+<li><b>Orbit heat.</b> Pick the mode and one orbit: every plane that has a graph is coloured by log(1 + count) of that orbit. Planes: lut, placed and clb (from the
+LUT netlist), the write_graph planes (ddg, cfg, stg) and, on silicon pages, stdcell and die (from the routed DEF nets, driver from the LEF pin direction).
+The <code>cell</code> plane is not analysed (the bundle holds no cell edges).</li>
+<li><b>Clustering.</b> k-means (k = 2, 4, 8, 16, 32; k-means++ start; the silhouette of every k is shown and the best is the default) and affinity propagation
+(similarity = negative squared distance, preference = median, damping 0.9), on three feature sets: undirected GDV, directed GDV (log(1 + count) of the 24 orbit columns of
+largest variance) and x, y position (placement planes). Fixed seed 20261106. Affinity propagation runs on the distinct vectors (at most 200, the most frequent; the rest
+join the nearest exemplar: the panel says when this applies). Cluster colours follow the size rank, red largest.</li>
+<li><b>Clusters as groups.</b> Click a cluster in the list: it becomes an update-4 group, so everything linked to it lights up on every plane and in the HDL pane
+(shared objects are pies). At most 2000 objects of a cluster are used.</li>
+<li><b>Compare signatures.</b> The signature of a set of nodes is its orbit totals plus the graphlet degree distribution, counted on the set's own subgraph. Pick two
+clusters: the panel shows the two Odin III similarities, the GDD agreement (Przulj) and the cosine of log(1 + orbit totals). Only the clusters of the default
+clusterings are signed (the largest 24 of each algorithm); an arbitrary selection is not.</li>
+<li><b>Graphlet types.</b> A table of every graphlet type with its count in the plane's graph (from Odin III's orbit totals), rare types first.
+The instance view (pick a type, see all its instances in a map colouring) is built in the viewer but needs a list of instances from an Odin III option that is not
+released yet; until then the table says so.</li>
+<li><b>Files.</b> <code>analytics/</code> in the bundle: <code>index.json</code>, one data file per plane and <code>partition.*.tsv</code> files (object id, cluster id) that
+Mimir's partition table can import.</li>
+</ul>
 
 <h2 id="update5">What's new (update 5): ASIC planes (the silicon flow)</h2>
 <p>Heimdall now also shows the ASIC target: Odin III to OpenROAD to GDS. Seven OpenCores designs have a <code>silicon-</code> page beside the FPGA pages

@@ -17,7 +17,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from heimdall import cluster
 
@@ -259,6 +259,34 @@ def sig_group(name: str, rows: Sequence[Sequence[int]], n_orbits: int) -> dict[s
     }
 
 
+def catalogue(bridge: Bridge, directed: bool) -> list[tuple[int, int, int, int, int]]:
+    """Odin III's orbit catalogue (`glet_count [--directed] --catalogue`, next to libodin3):
+    rows (orbit, graphlet, nodes, edges, orbit size in nodes)."""
+    prog = bridge.lib.parent / "glet_count"
+    cmd = [str(prog), *(["--directed"] if directed else []), "--catalogue"]
+    p = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if p.returncode != 0:
+        raise RuntimeError(f"glet_count --catalogue failed: {p.stderr.strip()[-80:]}")
+    rows = []
+    for ln in p.stdout.splitlines():
+        f = ln.split()
+        if len(f) >= 5:
+            rows.append((int(f[0]), int(f[1]), int(f[2]), int(f[3]), int(f[4])))
+    return rows
+
+
+def graphlet_table(
+    cat: Sequence[tuple[int, int, int, int, int]], totals: Sequence[int], n_orbits: int
+) -> list[list[int]]:
+    """[graphlet, nodes, edges, count] per graphlet: its orbit total over all nodes divided by the
+    orbit's size in nodes is the number of its (induced, connected) occurrences."""
+    out: dict[int, list[int]] = {}
+    for orbit, g, nodes, edges, mult in cat:
+        if orbit < n_orbits and g not in out and mult > 0:
+            out[g] = [g, nodes, edges, totals[orbit] // mult]
+    return [out[g] for g in sorted(out)]
+
+
 def induced(graph: PlaneGraph, members: Sequence[int]) -> tuple[int, list[tuple[int, int]]]:
     at = {m: k for k, m in enumerate(members)}
     return len(members), [(at[i], at[j]) for i, j in graph.edges if i in at and j in at]
@@ -272,7 +300,7 @@ def _sizes(labels: Sequence[int]) -> list[int]:
 
 
 def analyse_plane(
-    graph: PlaneGraph, bridge: Bridge, tmp: Path
+    graph: PlaneGraph, bridge: Bridge, tmp: Path, cat_cache: dict[str, Any]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """The index entry and the data file of one plane."""
     n = len(graph.ids)
@@ -345,6 +373,12 @@ def analyse_plane(
     info["_cluster_s"] = round(time.time() - t1, 2)
     info["clusterings"] = runs
     t2 = time.time()
+    info["graphlet_types"] = {}
+    for mk, (_mode, n_orb, directed, _size) in MODES.items():
+        if mk not in cat_cache:
+            cat_cache[mk] = catalogue(bridge, directed)
+        tot = [sum(r[j] for r in gdv[mk]) for j in range(n_orb)]
+        info["graphlet_types"][mk] = graphlet_table(cat_cache[mk], tot, n_orb)
     info["signatures"] = signatures(graph, runs, data["cl"], gdv, bridge, tmp)
     info["_sig_s"] = round(time.time() - t2, 2)
     return info, data
@@ -467,13 +501,14 @@ def analyse_bundle(
     }
     t0 = time.time()
     timing: dict[str, Any] = {}
+    cat_cache: dict[str, Any] = {}
     with tempfile.TemporaryDirectory(prefix="heimdall-sig-") as td:
         for g in graphs:
             if not g.edges:
                 index["notes"].append(f"{g.plane}: no edges, skipped")
                 continue
             try:
-                info, data = analyse_plane(g, bridge, Path(td))
+                info, data = analyse_plane(g, bridge, Path(td), cat_cache)
             except RuntimeError as e:
                 index["notes"].append(f"{g.plane}: {e}")
                 continue
@@ -525,3 +560,71 @@ def pack_new(bundle: Path, part_bytes: int = 40_000_000) -> None:
     (bundle / "manifest.json").write_text(
         json.dumps(man, sort_keys=True, indent=1) + "\n", encoding="utf-8"
     )
+
+
+INSTANCE_TYPES = 6  # the rarest graphlet types of a plane and mode that get an instance list
+INSTANCE_MAX = 400  # instances kept per type; the file says when a type was cut
+
+
+class Runner(Protocol):
+    def run(self, job: dict[str, Any]) -> dict[str, Any]: ...
+
+
+def add_instances(bundle: Path, bridge: Runner) -> list[str]:
+    """Ask Odin III for the instances of the rarest graphlet types of every analysed plane and mode,
+    write analytics/instances.<plane>.<mode>.json (plane object indices, plus the plane's edge list
+    for the viewer's conflict graph). Needs the Odin III `graphlets --instances` addition (spec
+    2026-11-06-odin3-graphlet-instances.md): the bridge op `instances` fails without it. Returns the
+    "<plane>.<mode>" names written, which are listed in manifest["analytics"]["instances"]."""
+    rd = BundleReader(bundle)
+    graphs = {g.plane: g for g in bundle_graphs(rd)[0]}
+    index = json.loads((bundle / "analytics" / "index.json").read_text(encoding="utf-8"))
+    written: list[str] = []
+    for plane, info in sorted(index["planes"].items()):
+        g = graphs.get(plane)
+        if g is None:
+            continue
+        for mk, (mode, _n_orb, directed, size) in MODES.items():
+            rows = [r for r in info["graphlet_types"][mk] if r[3] > 0]
+            rare = sorted(rows, key=lambda r: (r[3], r[0]))[:INSTANCE_TYPES]
+            jobs = [
+                {
+                    "n": len(g.ids),
+                    "edges": g.edges,
+                    "directed": directed,
+                    "size": size,
+                    "graphlet": r[0],
+                    "max": INSTANCE_MAX,
+                }
+                for r in rare
+            ]
+            if not jobs:
+                continue
+            res = bridge.run({"op": "instances", "jobs": jobs})["results"]
+            types = {
+                str(r[0]): {
+                    "total": x["total"],
+                    "written": len(x["instances"]),
+                    "truncated": int(len(x["instances"]) < x["total"]),
+                    "max": INSTANCE_MAX,
+                    "instances": x["instances"],
+                }
+                for r, x in zip(rare, res, strict=True)
+            }
+            doc = {
+                "plane": plane,
+                "mode": mode,
+                "edges": [list(e) for e in g.edges],
+                "types": types,
+            }
+            name = f"{plane}.{mk}"
+            (bundle / "analytics" / f"instances.{name}.json").write_text(
+                json.dumps(doc, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
+            )
+            written.append(name)
+    man = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+    man["analytics"]["instances"] = written
+    (bundle / "manifest.json").write_text(
+        json.dumps(man, sort_keys=True, indent=1) + "\n", encoding="utf-8"
+    )
+    return written
