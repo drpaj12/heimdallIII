@@ -65,6 +65,12 @@ class Dataset:
         self.power: dict[str, Any] = json.loads(pj.read_text(encoding="utf-8"))
         if self.power.get("version") != 1:
             raise ActivityError(f"{pj}: schema version {self.power.get('version')}, expected 1")
+        meta = root / "meta.json"  # optional: {"bifrost": "wyrd 5e9d0361"}, shown as the source
+        self.bifrost: str = (
+            str(json.loads(meta.read_text(encoding="utf-8")).get("bifrost", ""))
+            if meta.is_file()
+            else ""
+        )
         # net -> (p1, td)
         self.fpga_nets: dict[str, tuple[float, float]] = {}
         self.fpga_line: dict[
@@ -288,7 +294,10 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
         "totals": {
             k: t[k] for k in t if isinstance(t[k], (int, float)) and not isinstance(t[k], bool)
         },
-        "tool": {k: t[k] for k in ("arch", "tech", "method", "pdk", "parasitics") if k in t},
+        "tool": {
+            **({"bifrost": f"Bifrost III ({ds.bifrost})"} if ds.bifrost else {}),
+            **{k: t[k] for k in ("arch", "tech", "method", "pdk", "parasitics") if k in t},
+        },
         "warnings": t.get("warnings", []),
         "caveats": caveats(target),
         "line_power": (
