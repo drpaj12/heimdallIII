@@ -30,6 +30,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
 
 <nav id="toc"><b>Contents</b>
 <ol>
+  <li><a href="#update7">What's new (update 7)</a></li>
   <li><a href="#update6">What's new (update 6)</a></li>
   <li><a href="#update5">What's new (update 5)</a></li>
   <li><a href="#update4">What's new (update 4)</a></li>
@@ -49,6 +50,25 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
 
+<h2 id="update7">What's new (update 7): switching activity (Bifrost III power)</h2>
+<p>The left-hand section <b>Switching activity</b> shows what Bifrost III measured when it ran the design's own testbench. Heimdall draws the numbers as given; it does not
+recompute activity or power. Three designs have data, on both their FPGA and their silicon pages: mmuart, verilog_cordic_core and wb_lcd. Every other page says that it has none.</p>
+<ul>
+<li><b>Three colours.</b> Static probability (the share of time a net is 1), transition density (0-to-1 and 1-to-0 changes per clock cycle) and power (microwatts). Transition density and
+power end their colour range at the 98th percentile, because the clock nets toggle twice per cycle and would hide everything else; larger values take the top colour.</li>
+<li><b>Source.</b> The panel states where the activity came from: iverilog gate-level (the testbench run on the post-synthesis netlist), Odin III replay, or vectorless (ACE2). The
+pages here use the gate-level source. It also shows the testbench, the cycles, the start state of the latches, the share of nets that carry a measured value, and Bifrost's totals (total,
+dynamic, static, clock, frequency, energy per cycle).</li>
+<li><b>How a value reaches an object.</b> A net or instance whose name is the name Bifrost used takes its own value (basis <i>net</i>). The FPGA pages were built from a different Odin III
+netlist than the one Bifrost simulated, so many LUT names differ: such an object takes the mean over the nets Bifrost measured on the same HDL line (<i>line</i>), or the mean of its linked
+objects (<i>link</i>); an object with neither stays grey. The panel counts the objects of each plane by basis, and a check box limits the colouring to exact name matches. On the silicon pages
+the cells, die instances and routed nets are matched by name.</li>
+<li><b>Per HDL line.</b> HDL objects take the roll-up of the lines they span; the table lists the lines by power, then by activity. Click a row to select that line. FPGA power per line is a
+model (VPR reports power per block type, so Bifrost spreads the dynamic non-clock power over nets by activity times fanout plus one); silicon power per line is the sum over the instances
+that come from the line (exact). Cells added by the flow (tap cells, clock buffers) have no line.</li>
+<li><b>Limits.</b> Glitch power is not counted. Activity is that of one short testbench. Clock power on silicon is the clock-tree cells only, so it is a lower bound. The FPGA planes have
+no per-net or per-cell power, only the per-line model; the silicon planes have power per instance.</li>
+</ul>
 <h2 id="update6">What's new (update 6): graph analytics (graphlet signatures and clusterings)</h2>
 <p>A new left-hand section, <b>Graph analytics</b>, treats the netlist of each plane as a graph and asks what its structure looks like. The counting is done by
 Odin III (its graphlet counter); Heimdall only draws it. The panel appears on pages whose bundle has analytics.</p>

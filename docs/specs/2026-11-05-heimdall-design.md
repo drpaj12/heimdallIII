@@ -208,3 +208,37 @@ cluster an update-4 group, lighting all planes and HDL lines), (3) signature com
 (clusters of the shown clustering plus the current update-4 groups are signed on demand only when precomputed;
 the metrics come only from Odin III results in the bundle). Ad hoc selections are signed by the exporter for
 clusters only; this limit is stated in the panel.
+
+## 12. Switching-activity overlay (update 7, 2026-11-07)
+
+Purpose: show where a design's testbench makes nets toggle and where the power goes, on every plane and per HDL line
+(RQ: structure and activity as RE hints; measure: static probability, transition density, power in watts). Heimdall
+draws what Bifrost III measured (Wyrd spec `docs/specs/2026-11-06-bifrost-power-design.md`, schema version 1); it never
+recomputes activity or power.
+
+Input, one directory per design (`heimdall activity SITE_DIR --data DIR`; the design is the page slug after the first
+dash, the target is fpga for a `vtr` flow and asic for a `silicon` flow):
+- `power.json`: Bifrost schema v1 (totals, by_line for the FPGA model, by_line_asic).
+- `activity.csv`: FPGA nets, `net,name,file,line,p1,activity,source` (Bifrost's file).
+- `asic_nets.csv`: `net,p1,activity` of the gate-level run on the silicon `final.v`.
+- `asic_inst.csv`: `inst,dyn_w,static_w,out_net,file,line` (OpenROAD per-instance power; out_net from `final.v`; file and
+  line from the silicon flow `prov.csv`). Wyrd writes the first two files; the last two need a small driver around
+  `wyrd.bifrost.power.flow` (kept outside both repos) until Wyrd emits them.
+
+Output: `bundle/activity/activity.json` (packed like the other files) and `manifest["activity"]`
+(`target`, `source`, `source_label`, `planes`); manifest metrics `act_p1` (P(1)), `act_td` (toggles per cycle),
+`act_pw` (microwatts), the last two with `clip` 0.98 (the viewer ends the colour range at that quantile).
+The file holds one column per plane per metric aligned with the plane `ids`, plus `basis` per object.
+
+Join, in order, per object: (net) its name is a net or instance Bifrost measured, on the target's own planes (FPGA lut and
+placed; ASIC die, stdcell, route); (line) the first span's line range in the per-line table built from Bifrost's
+file:line per net or instance (mean P(1) and activity; power only on hdl objects, as Bifrost gave it); (link) the mean of
+linked objects that have a net or line value (ASIC power: from one linked plane, summed for hdl objects). Anything else is
+null (grey). The FPGA pages were built from an Odin III flow netlist that differs from Bifrost's own synthesis (soft
+adders, `flatten`), so on FPGA pages part of the objects take the line or link basis; the viewer reports counts per plane
+and offers "exact name matches only".
+
+Labelled in the panel, from Bifrost: the activity source (iverilog gate-level, Odin III replay, vectorless), the FPGA
+per-line power is a model, the ASIC split is per instance, ASIC clock power is the clock-tree cells (a lower bound),
+glitch power is not counted, activity is that of one testbench. A page with no `activity` in its manifest says so.
+Check: `tools/activity_check.py` (load time, console errors, measured objects on every listed plane per colour, a line click).

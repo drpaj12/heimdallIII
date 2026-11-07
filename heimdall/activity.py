@@ -33,6 +33,7 @@ SOURCE_LABEL = {
     "odin3-replay": "Odin III replay (RTL names, port waveform replayed)",
     "ace2": "vectorless (ACE2)",
 }
+CLIP = 0.98  # the viewer's colour range of act_td and act_pw ends at this quantile
 LINE_CAP = 300  # rows of the per-line table kept in the file
 
 
@@ -358,6 +359,7 @@ def metric_entries(target: str, planes: list[str], source: str) -> list[dict[str
             "unit": "toggles/cycle",
             "planes": on,
             "scale": "seq",
+            "clip": CLIP,
             "target": target,
             "source": f"Bifrost III, {source}",
             "measurer": "transition density: 0<->1 transitions per rising clock edge",
@@ -367,6 +369,7 @@ def metric_entries(target: str, planes: list[str], source: str) -> list[dict[str
             "unit": "uW",
             "planes": on,
             "scale": "seq",
+            "clip": CLIP,
             "target": target,
             "source": how,
             "measurer": "power: ASIC per instance (dynamic + leakage); FPGA per HDL line (a model)",

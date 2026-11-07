@@ -102,6 +102,11 @@ function metricRange(name) {
     if (!col) continue;
     for (const v of col) if (v !== null) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
   }
+  const clip = meta(name)?.clip;  // activity metrics: the clock nets toggle twice per cycle and would hide the rest
+  if (clip && lo !== Infinity) {
+    const all = S.order.flatMap((p) => (S.planes[p].metrics[name] ?? []).filter((v) => v !== null)).sort((a, b) => a - b);
+    hi = Math.max(all[Math.min(all.length - 1, Math.floor(clip * all.length))], lo);
+  }
   if (lo === Infinity) { lo = 0; hi = 1; }
   if (hi === lo) hi = lo + 1;
   return (S.ranges[name] = [lo, hi]);
@@ -1574,7 +1579,8 @@ function legend() {
   $("hi").textContent = div ? fmt(m) : fmt(hi);
   $("mid").textContent = div ? "0" : "";
   coverLegend();
-  $("unit").textContent = `${meta(name).unit}; grey = not measured. ${meta(name).measurer}`;
+  $("unit").textContent = `${meta(name).unit}; grey = not measured. ${meta(name).measurer}` +
+    (meta(name).clip ? `. The colour range ends at the ${Math.round(meta(name).clip * 100)}th percentile; larger values show the top colour (clock nets toggle twice per cycle).` : "");
 }
 const roleLegend = () => '<span style="color:#ff4fd8">&#9632;</span> flip-flop <span style="color:#ffb454">&#9632;</span> latched node (drives a D input) ' +
   '<span style="color:#4cd9a0">&#9632;</span> drives a primary output <span style="color:#8fc1ff">&#9632;</span> other; grey = no delay level';
@@ -1954,16 +1960,16 @@ function injectActivity() {
 }
 const BASIS_NAME = ["none", "net", "line", "link"];
 function actTotals(a) {
-  const t = a.totals, mw = (w) => (w === undefined ? "-" : `${(w * 1e3).toPrecision(4)} mW`), row = (k, v) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`;
+  const t = a.totals, mw = (w) => (w === undefined ? "-" : `${(w * 1e3).toPrecision(4)} mW`), row = (k, v) => `<div>${esc(k)}: <b>${esc(v)}</b></div>`;
   const rows = [row("total", mw(t.total_w)), row("dynamic", mw(t.dynamic_w)), row("static (leakage)", mw(t.static_w)), row("clock" + (a.target === "asic" ? " (clock-tree cells, a lower bound)" : ""), mw(t.clock_w))];
   if (t.freq_mhz !== undefined) rows.push(row("frequency", `${t.freq_mhz.toPrecision(4)} MHz`));
   if (t.energy_per_cycle_pj !== undefined) rows.push(row("energy per cycle", `${t.energy_per_cycle_pj.toPrecision(4)} pJ`));
   if (t.vectorless_total_w !== undefined) rows.push(row("vectorless (ACE2) total", mw(t.vectorless_total_w)));
-  return `<table>${rows.join("")}</table>`;
+  return rows.join("");
 }
 function actLines(a) {
-  const rows = a.lines.slice(0, 30).map((r, k) => `<tr class="actl" data-k="${k}" style="cursor:pointer"><td>${esc(r[0])}:${r[1]}</td><td>${r[2]}</td><td>${r[3] === null ? "-" : r[3].toFixed(3)}</td><td>${r[4] === null ? "-" : r[4].toPrecision(3)}</td><td>${r[5] === null ? "-" : r[5].toPrecision(3)}</td></tr>`);
-  return `<table><tr><td><b>HDL line</b></td><td>nets/cells</td><td>mean P(1)</td><td>toggles/cycle</td><td>uW${a.line_power === "model" ? " (model)" : ""}</td></tr>${rows.join("")}</table>`;
+  const rows = a.lines.slice(0, 30).map((r, k) => `<div class="actl" data-k="${k}" style="cursor:pointer;font-size:11px">${esc(r[0])}:${r[1]} &middot; ${r[2]} nets or cells &middot; P(1) ${r[3] === null ? "-" : r[3].toFixed(3)} &middot; ${r[4] === null ? "-" : r[4].toPrecision(3)} toggles/cycle &middot; ${r[5] === null ? "-" : r[5].toPrecision(3)} uW</div>`);
+  return `<div class="sub">${a.line_power === "model" ? "power per line is a model (see below)" : "power per line is per instance"}; top ${rows.length} lines by power, then activity</div>${rows.join("")}`;
 }
 function buildActUi() {
   const el = $("actbody"), a = S.act?.data;
@@ -1971,12 +1977,12 @@ function buildActUi() {
     el.innerHTML = '<div class="sub">No switching-activity data for this page. Bifrost III power runs exist for mmuart, verilog_cordic_core and wb_lcd only (their FPGA and silicon pages); nothing is estimated for the others.</div>';
     return;
   }
-  const cov = S.order.map((p) => { const c = a.coverage[p]; return `<tr><td>${p}</td>` + [1, 2, 3, 0].map((k) => `<td>${c[BASIS_NAME[k]]}</td>`).join("") + "</tr>"; }).join("");
+  const cov = S.order.map((p) => { const c = a.coverage[p]; return `<div style="font-size:11px">${p}: ${c.net} net, ${c.line} line, ${c.link} link, ${c.none} none</div>`; }).join("");
   el.innerHTML = `<div class="sub"><b>Activity source:</b> ${esc(a.source_label)}. Testbench ${esc(a.testbench)}${a.tb_pass ? " (prints PASS)" : ""}, ${a.cycles} cycles of ${esc(a.clock)}${a.start_state ? `, latches start at ${esc(a.start_state)}` : ""}; activity matched on ${(100 * a.matched_fraction).toFixed(1)}% of the nets.</div>` +
     `<div class="sub">${esc(Object.values(a.tool).join("; "))}</div>${actTotals(a)}` +
     `<div class="sub"><button id="actp1">colour: static probability</button> <button id="acttd">colour: transition density</button> <button id="actpw">colour: power</button></div>` +
     `<label class="sub"><input type="checkbox" id="actexact"> exact name matches only (grey elsewhere)</label>` +
-    `<h2>Join per plane (objects by basis)</h2><table><tr><td></td><td>net</td><td>line</td><td>link</td><td>none</td></tr>${cov}</table>` +
+    `<h2>Join per plane (objects by basis)</h2>${cov}` +
     `<div class="sub">net = the object's own name is the net Bifrost measured; line = mean over the nets on its HDL line; link = mean of linked objects; none = grey.</div>` +
     `<h2>Per HDL line (click to select)</h2>${actLines(a)}` +
     a.caveats.map((c) => `<div class="sub">${esc(c)}</div>`).join("") + (a.warnings.length ? `<div class="sub">Tool warnings: ${esc(a.warnings.join("; "))}</div>` : "");
