@@ -452,3 +452,23 @@ A spec argument may be `@FILE` with one spec per line. `SITE` holds `index.html`
 LUTs, FFs and a link to the Mimir catalogue), `_assets/` (the viewer, shared) and one directory per benchmark
 with `index.html`, `help.html` and `bundle/` (gzip parts, no file over 40 MB). Upload the directory to any static
 web host; no server code is needed. To test it locally: `python -m http.server` in `SITE`, then stop it.
+
+## Update 6: graph analytics
+
+Spec: `docs/specs/2026-11-05-heimdall-design.md` section 8; Odin III addition (not released) in
+`docs/specs/2026-11-06-odin3-graphlet-instances.md`. Needs the Odin III binding for the export step: `heimdall site` and
+`heimdall analytics` find it from `$HEIMDALL_ODIN3_ROOT` (default `~/odin3-ws/odin3`: its `.venv` Python, `plugins/python/odin3.py`,
+`build/rel-main3/libodin3.so` and `glet_count`; `$ODIN3_LIB`, `--odin3-python` override). Without it no analytics are written and the
+panel is hidden.
+
+    heimdall analytics BUNDLE_OR_SITE_DIR [--only SLUG] [--silicon-flow SLUG=FLOW_DIR] [--odin3-python PY]
+    heimdall refresh SITE_DIR [--note HTML]     # new viewer assets and pages on a built site, no flow run
+
+- Graphs: lut, placed, clb (LUT edges lifted through links), ddg, cfg, stg, and stdcell and die on silicon pages (`edges/net.json`:
+  driver and sink instance of each DEF net; `--silicon-flow` writes it for a page built earlier). Drivers with 16 or more sinks give no
+  edges. The `cell` plane has no edges in the bundle and is skipped.
+- `analytics/index.json`: per plane node and edge counts, the feature orbits, every clustering (key, k, silhouette, sizes), the
+  graphlet type table (`graphlet_types`, from Odin III orbit totals and its catalogue) and the signature sets with the two Odin III
+  similarity matrices. `analytics/<plane>.json`: `ids`, `gdv_u`, `gdv_d`, `cl` (labels per clustering key).
+  `analytics/partition.<plane>.<feature>.<alg>.tsv` are Mimir partition imports (object id, cluster id).
+- Timings are printed by `heimdall analytics` and not stored (bundles stay byte-identical on rebuild).
