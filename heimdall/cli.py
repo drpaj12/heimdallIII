@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from heimdall import analytics, export, flows, serve, site
+from heimdall import activity, analytics, export, flows, serve, site
 from heimdall.targets import asic
 
 
@@ -71,6 +71,14 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help="silicon run of a page built before edges/net.json existed (reads its DEF)",
     )
     an.add_argument("--only", metavar="SLUG", action="append", default=[], help="site pages to do")
+    ac = vsub.add_parser(
+        "activity",
+        help="add the switching-activity overlay (Bifrost III power data) to the pages of a "
+        "built site that have data",
+    )
+    ac.add_argument("site", metavar="SITE_DIR")
+    ac.add_argument("--data", required=True, metavar="DIR", help="one sub-directory per design")
+    ac.add_argument("--only", metavar="SLUG", action="append", default=[], help="site pages to do")
     rf = vsub.add_parser(
         "refresh", help="bring a built site up to this viewer (assets, pages, help); no flow is run"
     )
@@ -95,6 +103,8 @@ def run(args: argparse.Namespace) -> int:
         return 0
     if args.viz_command == "analytics":
         return _analytics(args)
+    if args.viz_command == "activity":
+        return _activity(args)
     return _serve(args)
 
 
@@ -155,6 +165,33 @@ def _site(args: argparse.Namespace) -> int:
         print(f"heimdall site: {e}", file=sys.stderr)
         return 2
     print(f"wrote {args.out}: {len(rows)} benchmarks")
+    return 0
+
+
+def _activity(args: argparse.Namespace) -> int:
+    root, data = Path(args.site), Path(args.data)
+    done = 0
+    for m in sorted(root.glob("*/bundle/manifest.json")):
+        b = m.parent
+        slug = b.parent.name
+        if args.only and slug not in args.only:
+            continue
+        tgt = activity.target_of(b)
+        dd = data / activity.design_of(slug)
+        if tgt is None or not (dd / "power.json").is_file():
+            continue
+        try:
+            ds = activity.Dataset(dd)
+            if not ds.has(tgt):
+                print(f"{slug}: no {tgt} power in {dd}, skipped")
+                continue
+            entry = activity.apply(b, ds, tgt)
+        except activity.ActivityError as e:
+            print(f"heimdall activity: {slug}: {e}", file=sys.stderr)
+            return 2
+        done += 1
+        print(f"{slug}: {entry['source']} on {len(entry['planes'])} planes")
+    print(f"{done} pages")
     return 0
 
 

@@ -32,6 +32,7 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 <a href="index.html">index</a>.</p>
 <nav id="toc"><b>Examples</b>
 <ol>
+  <li><a href="#update7">What's new (update 7)</a></li>
   <li><a href="#update61">What's new (update 6.1)</a></li>
   <li><a href="#update6">What's new (update 6)</a></li>
   <li><a href="#update5">What's new (update 5)</a></li>
@@ -51,6 +52,12 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 </ol></nav>
 <p>The viewer needs a browser with WebGL. Drag to rotate, right-drag to pan, wheel to zoom, click to select. Click empty space to clear the selection.
 Every picture below is a real screenshot of the viewer on the benchmark named above it, taken with the link beside it.</p>
+<section id="update7" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
+<h2>What's new (update 7)</h2>
+<ul>
+<li><b>Switching activity.</b> The FPGA and silicon pages of three designs (mmuart, verilog_cordic_core, wb_lcd) have a new left-hand section, <b>Switching activity</b> (Bifrost III power). It colours every plane by how often each net is high (static probability), how often it toggles per clock cycle (transition density) and, where Bifrost gives it, power. A table lists the HDL lines by power, and a click on a line selects it as usual. The section names the activity source (here: the design's own testbench run on the post-synthesis netlist in iverilog) and states the limits: the FPGA split per line is a model, the silicon split is per instance, and clock power is a lower bound. Pages without data say so. The details are in <a href="help.html#update7">help</a>.</li>
+</ul>
+</section>
 <section id="update61" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
 <h2>What's new (update 6.1): affinity propagation fix</h2>
 <ul>
