@@ -209,6 +209,33 @@ cluster an update-4 group, lighting all planes and HDL lines), (3) signature com
 the metrics come only from Odin III results in the bundle). Ad hoc selections are signed by the exporter for
 clusters only; this limit is stated in the panel.
 
+### 8.1 Compare any selection in the browser (update 8, 2026-11-07)
+
+Decision (Peter 2026-11-07): all Heimdall stays non-dynamic (static site, no server), so any selection is compared
+in the browser (option 1A), not by calling Odin III at view time.
+
+Purpose: signature compare of arbitrary selections as RE hints (HDL lines, a shift-click group, a cluster, a saved
+snapshot of any of them). Measure: per pair and mode the two metrics, member counts and the count of objects with no
+GDV; the panel works with no bridge call and the page load time is unchanged (under 30 s).
+
+Selection signature (per plane, per mode u or d): the members' GDV rows from `analytics/<plane>.json` (counted by Odin
+III on the whole plane graph at export), then orbit totals T_j = sum of the members' counts of orbit j, and the GDD:
+for each orbit j the pairs (k, d_j(k)), d_j(k) = number of members touching orbit j exactly k times, k >= 1 (members
+with count 0 are not in the distribution). Members that are not in the plane's GDV rows (plane without analytics, or
+an object outside the plane graph) have no GDV: they are counted and shown, and left out of the signature. This
+differs from the exporter's cluster signatures (section 8), which count each cluster on its own induced subgraph;
+the panel states the basis.
+
+Metrics (computed by `web/selcompare.js`, a line-for-line port of `src/graph/sig.c` of Odin III, spec
+`2026-10-30-graphlets-design.md` section 13): GDD agreement = mean over all orbits of A_j = 1 - D_j, with
+S_j(k) = d_j(k)/k, N_j(k) = S_j(k)/T where T = sum over k of S_j(k), D_j = sqrt(sum over the union of k of
+(N_j^A(k) - N_j^B(k))^2) / sqrt 2; T = 0 on both sides gives A_j = 1, on one side only A_j = 0. Cosine = cosine of
+the vectors log1p(T_j); both zero gives 1, one zero gives 0. Nothing is invented: this one view mirrors Odin III's
+metric code and is pinned to it by tests. `tools/selcompare_fixture.py` runs Odin III (`graphlet_counts` and the
+`graphlets --compare` pass through the bridge) on small graphs and node subsets and records Odin III's values in
+`tests/data/selcompare/fixture.json`; `tests/js/selcompare.test.mjs` asserts the browser values equal them to 1e-9.
+When Odin III's metric definition changes the fixture is regenerated and the port updated.
+
 ## 12. Switching-activity overlay (update 7, 2026-11-07)
 
 Purpose: show where a design's testbench makes nets toggle and where the power goes, on every plane and per HDL line
