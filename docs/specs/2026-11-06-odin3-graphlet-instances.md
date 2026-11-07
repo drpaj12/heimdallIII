@@ -67,7 +67,7 @@ Python: `odin3.graphlet_instances(n, edges, graphlet, directed=False, size=5, ma
 
 ## 5. Heimdall side (already written against a fixture)
 
-`heimdall/analytics.py` asks the bridge for the instances of the rarest types of each plane
+`heimdall/analytics.py` asks the bridge for the instances of every type that occurs on each plane and mode
 (`add_instances`), `analytics/instances.<plane>.<mode>.json` holds them as plane object indices; the viewer
 colours the conflict graph of the instances with DSatur (two instances conflict when they share a node or an
 edge joins them), the number of colours is shown in the legend, shared nodes are pies.

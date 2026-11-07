@@ -501,11 +501,11 @@ Odin III; since v0.8 the values come at full double precision from `odin3.graphl
 
 ## v0.8: graphlet instances
 
-In Graph analytics, the graphlet type table lists the types of a plane and mode, rare first, with their counts. For the
-rarest types (`INSTANCE_TYPES` = 6 per plane and mode) the exporter asks Odin III for the instances (`odin3.graphlet_instances`,
+In Graph analytics, the graphlet type table lists the types of a plane and mode, rare first, with their counts. For every
+type with at least one instance the exporter asks Odin III for the instances (`odin3.graphlet_instances`,
 through `tools/odin3_glet_bridge.py`, op `instances`) and writes `analytics/instances.<plane>.<mode>.json`: per type `total`
 (exact), `written`, `truncated`, `max` (`INSTANCE_MAX` = 400) and the instances as plane object indices, plus the plane's edge
 list. A click on a type colours every instance: two instances conflict when they share a node or an edge joins them, DSatur
 colours the conflict graph (the number of colours is shown), and a node shared by instances of several colours is a pie.
-Types beyond the rarest six have counts only; a type with more instances than `max` says "cut at max, not all shown" (never
+Types with 0 instances are greyed and not clickable. The file is fetched only when a type is picked, never at page load. A type with more instances than `max` says "cut at max, not all shown" (never
 silent). Needs Odin III rel-main4 or later.
