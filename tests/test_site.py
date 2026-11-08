@@ -42,6 +42,10 @@ class TestSpec(unittest.TestCase):
         self.assertEqual(s.src, (Path("/a"), Path("/b")))
         self.assertEqual(s.what, "an adder")
 
+    def test_note(self) -> None:
+        s = site.parse_spec("s:d=/f,what=w,note=a variant; see x/y")
+        self.assertEqual((s.what, s.note), ("w", "a variant; see x/y"))
+
     def test_bad(self) -> None:
         for bad in ("nosuite=/f", "a:b", "a:b=/f,zzz=1"):
             with self.assertRaises(site.SiteError):

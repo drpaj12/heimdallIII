@@ -45,6 +45,7 @@ class Spec:
     what: str = ""
     catalogue: str = ""
     lef: Path | None = None
+    note: str = ""  # shown on the page under the title (manifest "note")
 
     @property
     def slug(self) -> str:
@@ -52,14 +53,14 @@ class Spec:
 
 
 def parse_spec(text: str) -> Spec:
-    """`SUITE:DESIGN=FLOW_DIR[,src=DIR][,what=TEXT][,catalogue=URL]` (no comma inside values)."""
+    """`SUITE:DESIGN=FLOW_DIR[,src=DIR][,what=TEXT][,note=TEXT][,catalogue=URL]` (no comma)."""
     head, sep, rest = text.partition("=")
     suite, colon, design = head.partition(":")
     if not (sep and colon and suite and design):
         raise SiteError(f"bad spec {text!r}: want SUITE:DESIGN=FLOW_DIR[,key=value...]")
     fields = rest.split(",")
     src: list[Path] = []
-    what = catalogue = ""
+    what = catalogue = note = ""
     lef: Path | None = None
     for f in fields[1:]:
         k, _, v = f.partition("=")
@@ -67,6 +68,8 @@ def parse_spec(text: str) -> Spec:
             src.append(Path(v))
         elif k == "what":
             what = v
+        elif k == "note":
+            note = v
         elif k == "catalogue":
             catalogue = v
         elif k == "lef":
@@ -75,7 +78,7 @@ def parse_spec(text: str) -> Spec:
             what += "," + f  # a comma inside the description
         else:
             raise SiteError(f"bad spec {text!r}: unknown key {k!r}")
-    return Spec(suite, design, Path(fields[0]), tuple(src), what, catalogue, lef)
+    return Spec(suite, design, Path(fields[0]), tuple(src), what, catalogue, lef, note)
 
 
 def parse_specs(args: list[str]) -> list[Spec]:
@@ -185,6 +188,9 @@ def build_one(
     man = flows.export_flow(
         spec.flow, raw, f"{spec.suite}:{spec.design}", list(spec.src), lef=spec.lef
     )
+    if spec.note:
+        man["note"] = spec.note
+        (raw / "manifest.json").write_text(json.dumps(man), encoding="utf-8")
     analytics.analyse_bundle(raw, bridge)
     bench = out / spec.slug
     bench.mkdir(parents=True, exist_ok=True)

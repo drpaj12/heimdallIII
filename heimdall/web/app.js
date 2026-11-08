@@ -2143,6 +2143,7 @@ function buildUi() {
   $("view").addEventListener("wheel", wheelZoom, { passive: false });
   $("title").textContent = S.man.benchmark;
   $("subtitle").textContent = `${S.man.flow} flow, top ${S.man.top}; planes ${S.order.join(" > ")}`;
+  if (S.man.note) $("subtitle").textContent += ` Note: ${S.man.note}`;
   const c = S.man.counts;
   $("status").textContent = `${S.order.map((p) => `${p} ${c[p]}`).join(", ")}; ${S.man.links} links; ` +
     `${S.man.unanchored} placed by fallback; not in this bundle: ${S.man.missing_planes.join(", ")}`;
