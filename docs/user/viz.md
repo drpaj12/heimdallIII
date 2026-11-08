@@ -24,6 +24,7 @@ The version is `heimdall.__version__` (one place; the help page, the guide and t
 | v0.6.1 | affinity propagation fix | 2026-11-06 |
 | v0.7 | switching-activity overlay (Bifrost III power) and compare on any selection | 2026-11-07 |
 | v0.8 | graphlet instance view (Odin III `graphlets --instances`); metric port checked to 1e-9 | 2026-11-07 |
+| v0.9 | page for OpenCores pipelined_fft_256; guide and help screenshots retaken (`tools/help_shots.py`, `tools/guide_shots.py`) | 2026-11-08 |
 
 ## Make a bundle
 
