@@ -62,6 +62,7 @@ gate-level simulation of its own netlist (mmuart, verilog_cordic_core, wb_lcd); 
 the difference between the two on the nets both name: the mean absolute difference of P(1) and of density. <i>Odin III vectorless</i> is the <code>activity</code> pass (analytic: it propagates P(1) and
 transition density through the netlist with the primary inputs at P(1) 0.5 and density 0.2 and runs no vectors; the method and its limits are in the Odin III documentation, <code>docs/user/activity.md</code>).
 It uses the hash names of the flow netlist, so an object takes its value by name (basis <i>net</i>).</li>
+<li><figure><img src="images/activity-sources.png" alt="the Switching activity section on opencores-mmuart with the source picker"><figcaption>opencores-mmuart: the source picker, the difference between the two sources, Bifrost's totals and the coverage per plane.</figcaption></figure></li>
 <li><b>Coverage per plane.</b> Each plane line in the section now says what share of its objects has a value (any basis). The basis stays per object: <i>net</i>, <i>line</i> (the mean over the objects of the
 same HDL line), <i>link</i> (the mean of linked objects) or none (grey). The basis is the honest part: a value on a plane that no net names is derived, and the section says how.</li>
 <li><b>Power stays Bifrost's.</b> Power columns come from Bifrost's own run and its own activity source. When you pick the Odin III source, the section says so; no power is recomputed from it.</li>
