@@ -24,6 +24,20 @@ def run_export(out: Path) -> dict[str, Any]:
 
 
 class TestReaders(unittest.TestCase):
+    def test_read_jsonl_caps_links(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "o.jsonl"
+            big = {"id": "a", "links": [{"to": f"hdl:c{i}"} for i in range(100)]}
+            small = {"id": "b", "links": [{"to": "hdl:c1"}]}
+            f.write_text(json.dumps(big) + "\n\n" + json.dumps(small) + "\n", encoding="utf-8")
+            capped = export.read_jsonl(f, 64)
+            plain = export.read_jsonl(f)
+        self.assertEqual(len(capped[0]["links"]), 64)
+        self.assertEqual((capped[0]["links_total"], capped[0]["links_capped"]), (100, True))
+        self.assertEqual(capped[0]["links"][0]["to"], "hdl:c0")
+        self.assertNotIn("links_capped", capped[1])
+        self.assertEqual(len(plain[0]["links"]), 100)
+
     def test_blif_levels_fanout_edges(self) -> None:
         nl = blif.read_blif(FLOW / "odin3" / "t.blif")
         lv = nl.levels()

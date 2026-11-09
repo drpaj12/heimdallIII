@@ -444,5 +444,12 @@ def target_of(bundle: Path) -> str | None:
     return {"vtr": "fpga", "silicon": "asic"}.get(man.get("flow", ""))
 
 
+SUITE_PREFIX = ("odin3-micro-", "vtr-verilog-", "verilogeval-", "opencores-", "silicon-")
+
+
 def design_of(slug: str) -> str:
+    """The design directory name of a page slug (the suite prefix removed)."""
+    for pre in SUITE_PREFIX:
+        if slug.startswith(pre):
+            return slug[len(pre) :]
     return slug.partition("-")[2]

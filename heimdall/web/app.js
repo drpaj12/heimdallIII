@@ -2144,6 +2144,7 @@ function buildUi() {
   $("title").textContent = S.man.benchmark;
   $("subtitle").textContent = `${S.man.flow} flow, top ${S.man.top}; planes ${S.order.join(" > ")}`;
   if (S.man.note) $("subtitle").textContent += ` Note: ${S.man.note}`;
+  if (S.man.link_cap) $("subtitle").textContent += ` Link cap: ${S.man.link_cap.objects} provenance objects have up to ${S.man.link_cap.max_links} links to HDL constructs; the first ${S.man.link_cap.cap} of each are kept (the full count is in hdl_links).`;
   const c = S.man.counts;
   $("status").textContent = `${S.order.map((p) => `${p} ${c[p]}`).join(", ")}; ${S.man.links} links; ` +
     `${S.man.unanchored} placed by fallback; not in this bundle: ${S.man.missing_planes.join(", ")}`;
