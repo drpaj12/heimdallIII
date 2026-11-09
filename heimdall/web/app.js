@@ -611,7 +611,7 @@ function drawLines() {
 }
 
 // ---- collapsible panels: left controls, HDL pane, right selection ----
-let panels = pl.load(globalThis.localStorage);
+let panels = pl.load(globalThis.localStorage, globalThis.matchMedia?.("(max-width: 800px)").matches);
 function applyPanels() {
   $("app").style.gridTemplateColumns = pl.gridColumns(panels);
   const ids = { left: "left", hdl: "srcpane", right: "right" };
@@ -1303,6 +1303,7 @@ function setView(v) {
   S.view = v;
   $("viewmode").value = v;
   applyVisibility();
+  controls.touches.ONE = v === "stack" ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN; // a single plane view cannot rotate
   if (v === "stack") { controls.enableRotate = true; resetCamera(); return; }
   const y = planeY(S.order.indexOf(v)), W = Math.max(S.bounds[2] - S.bounds[0], S.bounds[3] - S.bounds[1]);
   controls.enableRotate = false;
@@ -1419,8 +1420,14 @@ export function soloPlane(p) {
 // cursor when none is focused): the camera and the orbit target both move towards that point
 function wheelZoom(ev) {
   ev.preventDefault();
+  const dy = ev.deltaMode === 1 ? ev.deltaY * 16 : ev.deltaY;
+  zoomAt(ev.clientX, ev.clientY, Math.exp(dy * 0.0013));
+}
+
+// f < 1 zooms in, f > 1 out, towards the screen point (cx, cy); used by the wheel, the touch pinch and the buttons
+function zoomAt(cx, cy, f) {
   const r = $("view").getBoundingClientRect();
-  raycaster.setFromCamera(new THREE.Vector2(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), camera);
+  raycaster.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
   const ray = raycaster.ray, W = S.bounds[2] - S.bounds[0], H = S.bounds[3] - S.bounds[1];
   let best = null;
   for (const p of S.focus ? [S.focus] : S.order) {
@@ -1434,8 +1441,6 @@ function wheelZoom(ev) {
     if (!best || t < best.t) best = { t, hit };
   }
   const P = best ? best.hit : controls.target.clone();
-  const dy = ev.deltaMode === 1 ? ev.deltaY * 16 : ev.deltaY;
-  let f = Math.exp(dy * 0.0013);
   const dist = camera.position.distanceTo(P);
   if (dist * f < 0.6) f = 0.6 / Math.max(dist, 1e-6);
   if (dist * f > 1500) f = 1500 / dist;
@@ -1443,6 +1448,48 @@ function wheelZoom(ev) {
   camera.position.copy(P).addScaledVector(dc, f);
   controls.target.copy(P).addScaledVector(dt, f);
   controls.update();
+}
+
+// Touch: one finger rotates (OrbitControls), two fingers pan (OrbitControls) and pinch zooms towards the pinch centre
+// (OrbitControls' own dolly is off: enableZoom = false). `cancelTap` is called when a second finger lands, so the end
+// of a gesture is never taken for a tap. The + / - / fit buttons zoom about the middle of the view.
+function setupTouch(cv, cancelTap) {
+  const pts = new Map();
+  let last = null;
+  const state = () => { const [a, b] = [...pts.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  cv.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { last = state(); cancelTap(); }
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "touch" || !pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size !== 2 || !last) return;
+    const now = state();
+    if (now.d > 1 && last.d > 1) zoomAt(now.x, now.y, last.d / now.d);
+    last = now;
+  });
+  const end = (e) => { pts.delete(e.pointerId); if (pts.size < 2) last = null; };
+  cv.addEventListener("pointerup", end);
+  cv.addEventListener("pointercancel", end);
+  const mid = () => { const r = cv.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  $("zin").addEventListener("click", () => zoomAt(...mid(), 0.7));
+  $("zout").addEventListener("click", () => zoomAt(...mid(), 1 / 0.7));
+  $("zfit").addEventListener("click", () => { if (S.view === "stack") resetCamera(); else setView(S.view); });
+}
+
+// previous / next page in the complexity order of the index (the site writes _assets/order.json; absent when served locally)
+async function setupOrderNav() {
+  try {
+    const r = await fetch("../_assets/order.json");
+    if (!r.ok) return;
+    const slugs = (await r.json()).slugs, here = decodeURIComponent(location.pathname.split("/").filter(Boolean).pop() ?? "");
+    const i = slugs.indexOf(here);
+    if (i < 0) return;
+    const link = (j, text) => (j >= 0 && j < slugs.length ? `<a href="../${slugs[j]}/">${text}</a>` : `<span class="dim">${text}</span>`);
+    $("ordnav").innerHTML = `${link(i - 1, "&larr; simpler")} &middot; <a href="../">index</a> &middot; ${link(i + 1, "more complex &rarr;")} <span class="sub">(${i + 1} of ${slugs.length})</span>`;
+  } catch { /* not part of a built site */ }
 }
 
 // ---- paths: VPR's reported setup paths, and the combinational cone of the selection in the LUT netlist ----
@@ -2214,6 +2261,8 @@ function buildUi() {
     tip.style.display = text ? "block" : "none";
     if (text) { tip.textContent = text; tip.style.left = e.clientX - r.left + 12 + "px"; tip.style.top = e.clientY - r.top + 12 + "px"; }
   });
+  setupTouch(cv, () => { down = null; }); // after the handlers above, so its pointerdown runs last
+  setupOrderNav();
 }
 
 // Deep links: the URL query (see urlstate.js) sets the state once the bundle is loaded. Bad names are ignored.

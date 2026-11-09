@@ -33,3 +33,11 @@ test("state round-trips through storage", () => {
   save(st, { left: true, hdl: false, right: false });
   assert.deepEqual(load(st), { left: true, hdl: false, right: false });
 });
+
+test("nothing stored: open on a wide screen, collapsed on a narrow one; stored state wins", () => {
+  const empty = { getItem: () => null };
+  assert.deepEqual(load(empty), { left: false, hdl: false, right: false });
+  assert.deepEqual(load(empty, true), { left: true, hdl: true, right: true });
+  const kept = { getItem: () => '{"left":true}' };
+  assert.deepEqual(load(kept, true), { left: true, hdl: false, right: false });
+});
