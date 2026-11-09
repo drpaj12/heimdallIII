@@ -226,6 +226,13 @@ class TestActivity(unittest.TestCase):
         canon = activity._canon(planes)
         self.assertEqual(canon, {"a.v": "rtl/a.v"})  # b.v is ambiguous: left alone
 
+    def test_output_pad_takes_its_net(self) -> None:
+        nets = {"q": (0.5, 0.2), "out:r": (0.1, 0.1)}
+        self.assertEqual(activity._pad_net("out:q", nets), "q")
+        self.assertEqual(activity._pad_net("out:r", nets), "out:r")  # the exact name wins
+        self.assertEqual(activity._pad_net("out:zz", nets), "out:zz")
+        self.assertEqual(activity._pad_net("q", nets), "q")
+
     def test_first_span(self) -> None:
         self.assertEqual(activity.first_span([["x/a.v", "3.1-5.2"]]), ("a.v", 3, 5))
         self.assertIsNone(activity.first_span([]))

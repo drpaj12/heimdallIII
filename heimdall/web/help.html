@@ -30,6 +30,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
 
 <nav id="toc"><b>Contents</b>
 <ol>
+  <li><a href="#update93">What's new (v0.9.3)</a></li>
   <li><a href="#update92">What's new (v0.9.2)</a></li>
   <li><a href="#update91">What's new (v0.9.1)</a></li>
   <li><a href="#update9">What's new (v0.9)</a></li>
@@ -53,6 +54,13 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#limits">Known limits per plane</a></li>
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
+
+<h2 id="update93">What's new (v0.9.3): three pages rebuilt so that activity joins by name</h2>
+<ul>
+<li><b>mips_16, attiny_atmega_xmega_core and sha3_high were rebuilt.</b> Their v0.9.1 bundles came from one flow run and their activity from another netlist, so many hash names did not agree. Each page now comes from one fresh <code>odin3-flow --prov</code> run (Odin III 1.6.0), Odin III's activity pass runs on that same netlist, and the names join one to one. The Bifrost III ACE2 source stays where its names still join (mips_16, attiny); its numbers were computed on an earlier netlist, so the coverage of that source is lower and is shown as it is.</li>
+<li><b>Output pads take their net's value.</b> VPR names the pad of a primary output <code>out:NAME</code>; the join now looks the plain net name up when only that name was measured, on every page (basis <i>net</i>).</li>
+<li><b>What still has no value, and why.</b> Objects that are not a net of the mapped netlist cannot be joined by name: nets the mapper absorbed into a LUT (they are in the name map, not in the BLIF; they take their HDL line when the line has a value), HDL declarations and modules, and data-dependence nodes without a source span. They show <i>none</i> in the basis column instead of an invented value.</li>
+</ul>
 
 <h2 id="update92">What's new (v0.9.2): pages in rising complexity; touch zoom on a phone</h2>
 <ul>

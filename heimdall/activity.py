@@ -232,6 +232,17 @@ def _derived_lines(
     return out
 
 
+OUT_PAD = "out:"  # VPR names the pad of a primary output "out:<net>"
+
+
+def _pad_net(name: str, nets: dict[str, tuple[float, float]]) -> str:
+    """The net an object name stands for: the name itself, or without the `out:` of an output
+    pad when only the plain name is a measured net (v0.9.3)."""
+    if name not in nets and name.startswith(OUT_PAD) and name[len(OUT_PAD) :] in nets:
+        return name[len(OUT_PAD) :]
+    return name
+
+
 def build(bundle: Path, ds: Dataset, target: str, source: str | None = None) -> dict[str, Any]:
     """The activity.json content of one bundle for one source (default: the design's first)."""
     man = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
@@ -258,8 +269,8 @@ def build(bundle: Path, ds: Dataset, target: str, source: str | None = None) -> 
     for p in direct:
         v = vals[p]
         for i, name in enumerate(planes[p]["name"]):
-            if target == "fpga" and name in fnets:
-                v["p1"][i], v["td"][i] = fnets[name]
+            if target == "fpga" and _pad_net(name, fnets) in fnets:
+                v["p1"][i], v["td"][i] = fnets[_pad_net(name, fnets)]
                 v["basis"][i] = 1
             elif target == "asic" and name in ds.asic_inst:
                 a, b, w = ds.asic_inst[name]
