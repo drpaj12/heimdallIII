@@ -217,6 +217,15 @@ class TestActivity(unittest.TestCase):
             out = activity.build(b, activity.Dataset(d), "fpga")
         self.assertEqual(out["tool"]["bifrost"], "Bifrost III (wyrd 5e9d0361)")
 
+    def test_line_rows_use_the_planes_file_name(self) -> None:
+        planes = {
+            "hdl": {
+                "src": [[["rtl/a.v", "1.1-1.2"]], [["rtl/b.v", "1.1-1.2"], ["x/b.v", "2.1-2.2"]]]
+            }
+        }
+        canon = activity._canon(planes)
+        self.assertEqual(canon, {"a.v": "rtl/a.v"})  # b.v is ambiguous: left alone
+
     def test_first_span(self) -> None:
         self.assertEqual(activity.first_span([["x/a.v", "3.1-5.2"]]), ("a.v", 3, 5))
         self.assertIsNone(activity.first_span([]))

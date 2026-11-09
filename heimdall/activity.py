@@ -334,7 +334,7 @@ def build(bundle: Path, ds: Dataset, target: str, source: str | None = None) -> 
     pw = ds.power
     t = pw.get("targets", {}).get(target, {})
     bif_key = str(pw.get("activity", {}).get("source", "")) if pw else ""
-    lines = _line_rows(table, pwl)
+    lines = _line_rows(table, pwl, _canon(planes))
     mp = "lut" if "lut" in direct else next(iter(sorted(direct)), "")
     n_mp = len(planes[mp]["ids"]) if mp else 0
     matched = (
@@ -437,13 +437,26 @@ def caveats(target: str, vectorless: bool = False) -> list[str]:
     ]
 
 
-def _line_rows(table: LineTable, power: dict[tuple[str, int], float]) -> list[list[Any]]:
+def _canon(planes: dict[str, dict[str, Any]]) -> dict[str, str]:
+    """Base name -> the file name the planes use, where that is unique (the viewer keys its
+    source texts by the planes' names, which can carry a directory)."""
+    seen: dict[str, set[str]] = defaultdict(set)
+    for pl in planes.values():
+        for srcs in pl.get("src") or []:
+            for f, _ in srcs:
+                seen[Path(f).name].add(f)
+    return {b: next(iter(fs)) for b, fs in seen.items() if len(fs) == 1}
+
+
+def _line_rows(
+    table: LineTable, power: dict[tuple[str, int], float], canon: dict[str, str]
+) -> list[list[Any]]:
     rows: list[list[Any]] = []
     for f, d in table.files.items():
         for ln, (n, sp, st, w) in d.items():
             rows.append(
                 [
-                    f,
+                    canon.get(f, f),
                     ln,
                     int(n),
                     round(sp / n, 4) if n else None,

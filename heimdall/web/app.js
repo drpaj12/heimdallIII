@@ -2089,7 +2089,7 @@ function buildActUi() {
   }
   if ($("actsrc")) $("actsrc").addEventListener("change", (e) => switchActivity(e.target.value));
   $("actexact").addEventListener("change", (e) => { S.act.exact = e.target.checked; injectActivity(); refreshAll(); });
-  el.querySelectorAll(".actl").forEach((tr) => tr.addEventListener("click", () => { const r = a.lines[+tr.dataset.k]; if (r[1] > 0) selectLines(r[0], r[1], r[1]); }));
+  el.querySelectorAll(".actl").forEach((tr) => tr.addEventListener("click", () => { const r = a.lines[+tr.dataset.k]; if (r[1] <= 0) return; selectLines(r[0], r[1], r[1]); if (!S.mode.n) { $("enclosing").checked = true; selectLines(r[0], r[1], r[1]); } }));
 }
 
 function buildUi() {

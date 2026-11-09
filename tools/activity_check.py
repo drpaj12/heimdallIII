@@ -39,9 +39,13 @@ async () => {
         per[k][p] = (S.planes[p].metrics[k] ?? []).filter((v) => v !== null).length;
       }
     }
-    const lacking = S.man.activity.planes.filter((p) => !per.act_p1[p] && !per.act_pw[p] && S.act.data.coverage[p].none < S.planes[p].ids.length);
-    const cov = S.act.data.coverage, tot = Object.values(cov).reduce((n, c) => n + c.net + c.line + c.link + c.none, 0);
-    const got = Object.values(cov).reduce((n, c) => n + c.net + c.line + c.link, 0);
+    const cov = S.act.data.coverage;
+    const lacking = S.man.activity.planes.filter(
+      (p) => !per.act_p1[p] && !per.act_pw[p] && cov[p].none < S.planes[p].ids.length,
+    );
+    const sum = (f) => Object.values(cov).reduce((n, c) => n + f(c), 0);
+    const tot = sum((c) => c.net + c.line + c.link + c.none);
+    const got = sum((c) => c.net + c.line + c.link);
     out.sources[s.key] = { lacking, joined: `${got}/${tot}` };
     out.ok = out.ok && lacking.length === 0;
   }
@@ -54,9 +58,10 @@ async () => {
 LINE = """
 () => {
   const o = window.__o3viz, S = o.S, a = S.act.data;
-  const row = a.lines.find((r) => r[1] > 0 && S.texts[r[0]]);
-  if (!row) return { ok: false, line: null, sel: 0 };
-  o.selectLines(row[0], row[1], row[1]);
+  const k = a.lines.slice(0, 30).findIndex((r) => r[1] > 0 && S.texts[r[0]]);
+  if (k < 0) return { ok: false, line: null, sel: 0 };
+  document.querySelector(`.actl[data-k="${k}"]`).click();
+  const row = a.lines[k];
   return { ok: (S.mode?.n ?? 0) > 0, line: `${row[0]}:${row[1]}`, sel: S.mode?.n ?? 0 };
 }
 """
