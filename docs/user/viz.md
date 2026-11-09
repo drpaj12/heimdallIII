@@ -25,6 +25,13 @@ The version is `heimdall.__version__` (one place; the help page, the guide and t
 | v0.7 | switching-activity overlay (Bifrost III power) and compare on any selection | 2026-11-07 |
 | v0.8 | graphlet instance view (Odin III `graphlets --instances`); metric port checked to 1e-9 | 2026-11-07 |
 | v0.9 | page for OpenCores pipelined_fft_256; guide and help screenshots retaken (`tools/help_shots.py`, `tools/guide_shots.py`) | 2026-11-08 |
+| v0.9.1 | switching activity on every page that has data; a-z80-modified page | 2026-11-08 |
+| v0.9.2 | pages in complexity order; touch zoom on a phone | 2026-11-09 |
+| v0.9.3 | three pages rebuilt from one flow run each; output pads take their net's value | 2026-11-09 |
+
+What each release changed for a reader is in the viewer's help page ("What's new") and in `help.html` of a built site.
+Odin III needed: 1.5.0 or later for the graphlet instance view and the analytics step (the Python binding), the version
+in use for the current site pages is the one named in `docs/user/build-site.md`. Install and first run: the README.
 
 ## Make a bundle
 
@@ -290,7 +297,7 @@ state is kept in `localStorage`. The draggable HDL divider is kept.
 ## M7: graph planes above the HDL (STG, CFG, signal DDG) and the SCOAP join
 
 Peter 2026-11-05: show Odin III's graph exports as planes above the HDL view. Odin III writes them with
-`write_graph stg|cfg|ddg FILE` (schema `odin3-graph` v1, `odin3/docs/user/graph-views.md`). `heimdall export` now runs the
+`write_graph stg|cfg|ddg FILE` (schema `odin3-graph` v1, the Odin III user manual page on graph views, https://drpaj12.github.io/odin3/). `heimdall export` now runs the
 three commands inside the same extra Odin III run as the M5 dumps (`cfg` just before `proc`, `stg` and `ddg` just after)
 and `scoap --prov`. Use `--odin3 PATH` to run a different Odin III program than the one in the flow's log (the flow may
 have used an older build). If the build lacks a command the exporter retries without it and the manifest `notes` say
@@ -403,7 +410,7 @@ guide (example 11).
   are tinted in its colour; a line in several groups shows one bar per group beside its number. `Esc`, the "clear
   selection" button, or any other selection resets. URL: `grp=ID,ID;ID` (`;` between groups).
 
-![rainbow lines on the lut plane](images/guide/rainbow-1.png)
+![rainbow lines on the lut plane](../../heimdall/web/images/guide/rainbow-1.png)
 
 ## Update 5: ASIC planes (silicon flow)
 
@@ -453,31 +460,32 @@ worst slack of the paths through the object; objects on no reported path stay gr
 
 ## Test
 
-    .venv/bin/python -m unittest tests.test_o3viz tests.test_o3viz_viewer tests.test_o3viz_cells -v
-    .venv/bin/python -m unittest tests.test_o3viz_help   # help page: keys vs app.js, images present
-    node --test tests/js/*.test.mjs       # expression language, line and cone selection
-    python tools/o3viz_shot.py BUNDLE out.png --colour slack_worst   # needs playwright + chromium
+    .venv/bin/python -m unittest discover -s tests -v    # all Python tests (159 at v0.9.3, 6 skipped without Odin III)
+    .venv/bin/python -m unittest tests.test_help tests.test_guide   # help and guide pages: keys vs app.js, images present
+    for f in tests/js/*.test.mjs; do node --test "$f"; done   # browser-side code: expressions, selection, layout, compare
+    python tools/shot.py BUNDLE out.png --colour slack_worst   # needs playwright + chromium
 
 ## Build a static site
 
-    heimdall site --out SITE --base-url https://drpeterjamieson.com/RESEARCH/HEIMDALL/ \
+    heimdall site --out SITE --base-url https://example.org/HEIMDALL/ \
         "vtr-verilog:ch_intrinsics=RUN_DIR,src=DIR_WITH_HDL,what=short description" ...
 
 A spec argument may be `@FILE` with one spec per line. `SITE` holds `index.html` (a table of the benchmarks with
 LUTs, FFs and a link to the Mimir catalogue), `_assets/` (the viewer, shared) and one directory per benchmark
 with `index.html`, `help.html` and `bundle/` (gzip parts, no file over 40 MB). Upload the directory to any static
-web host; no server code is needed. To test it locally: `python -m http.server` in `SITE`, then stop it.
+web host; no server code is needed. The full how-to (specs file, extending a site, refresh, packaging) is `docs/user/build-site.md`. To test it locally: `python -m http.server` in `SITE`, then stop it.
 
 ## Update 6: graph analytics
 
-Spec: `docs/specs/2026-11-05-heimdall-design.md` section 8; Odin III addition (not released) in
+Spec: `docs/specs/2026-11-05-heimdall-design.md` section 8; Odin III addition (released in Odin III 1.5.0) in
 `docs/specs/2026-11-06-odin3-graphlet-instances.md`. Needs the Odin III binding for the export step: `heimdall site` and
-`heimdall analytics` find it from `$HEIMDALL_ODIN3_ROOT` (default `~/odin3-ws/odin3`: its `.venv` Python, `plugins/python/odin3.py`,
-`build/rel-main3/libodin3.so` and `glet_count`; `$ODIN3_LIB`, `--odin3-python` override). Without it no analytics are written and the
+`heimdall analytics` find it from `$HEIMDALL_ODIN3_ROOT` (set it to an Odin III checkout that has a `.venv` Python, `plugins/python/odin3.py`,
+`build/rel-main3/libodin3.so` and `glet_count`; `$ODIN3_LIB` and `--odin3-python` override). Without it no analytics are written and the
 panel is hidden.
 
     heimdall analytics BUNDLE_OR_SITE_DIR [--only SLUG] [--silicon-flow SLUG=FLOW_DIR] [--odin3-python PY]
     heimdall refresh SITE_DIR [--note HTML]     # new viewer assets and pages on a built site, no flow run
+    heimdall activity SITE_DIR --data DIR [--only SLUG]   # add the switching-activity overlay (v0.7); DIR has one sub-directory per design
 
 - Graphs: lut, placed, clb (LUT edges lifted through links), ddg, cfg, stg, and stdcell and die on silicon pages (`edges/net.json`:
   driver and sink instance of each DEF net; `--silicon-flow` writes it for a page built earlier). Drivers with 16 or more sinks give no
@@ -509,4 +517,4 @@ through `tools/odin3_glet_bridge.py`, op `instances`) and writes `analytics/inst
 list. A click on a type colours every instance: two instances conflict when they share a node or an edge joins them, DSatur
 colours the conflict graph (the number of colours is shown), and a node shared by instances of several colours is a pie.
 Types with 0 instances are greyed and not clickable. The file is fetched only when a type is picked, never at page load. A type with more instances than `max` says "cut at max, not all shown" (never
-silent). Needs Odin III rel-main4 or later.
+silent). Needs Odin III 1.5.0 or later.

@@ -11,42 +11,47 @@ granularity; graph analysis of netlist structure). Two targets by design: the FP
 atoms on the VPR grid) today, and the ASIC flow (Odin III, OpenROAD, GDS, `sky130_fd_sc_hd`) later; the ASIC
 exporter is a stub (`heimdall/targets/asic.py`). Spec: `docs/specs/2026-11-05-heimdall-design.md`.
 
+## Install
+
+Python 3.11 or later; the runtime uses the standard library only.
+
+    python3 -m venv .venv
+    .venv/bin/pip install git+https://github.com/drpaj12/heimdallIII.git     # or: git clone ..., then pip install .
+    .venv/bin/heimdall --help
+
+To make bundles you also need Odin III 1.5.0 or later (`odin3`, `odin3-flow`, `odin3-prov-post`, `odin3-prov-steps`;
+the graph analytics also need its Python binding, found from `$HEIMDALL_ODIN3_ROOT`, an Odin III checkout) and VPR for
+the FPGA pages. Install those from https://github.com/drpaj12/odin3 (manual: https://drpaj12.github.io/odin3/); the
+other outside tools and their versions are on the hub page
+https://github.com/drpaj12/YggdrasilIII/blob/main/docs/tools.md. Viewing an existing bundle or site needs none of them.
+
 ## Use
 
     heimdall export RUN_DIR --out design.o3viz --benchmark suite:design --src HDL_DIR
-    heimdall serve design.o3viz                 # http://127.0.0.1:8765/ ; Ctrl-C to stop
-    heimdall site --out SITE --base-url https://drpeterjamieson.com/RESEARCH/HEIMDALL/ SPEC...
+    heimdall serve design.o3viz                 # http://127.0.0.1:8765/ ; --port N for another ; Ctrl-C to stop
+    heimdall site --out SITE --base-url https://example.org/HEIMDALL/ SPEC...
+    heimdall analytics SITE                     # graph analytics on every page (needs the Odin III binding)
+    heimdall activity SITE --data DIR           # switching-activity overlay
+    heimdall refresh SITE                       # new viewer on a built site, no flow run
 
-Details, controls and screenshots: `docs/user/viz.md`; the viewer has its own help page (press `?`).
-Python 3.11+, standard library only at runtime. Odin III, VPR and ABC are used only as programs.
+`RUN_DIR` is an `odin3-flow --prov --keep-results` run after `odin3-prov-post` and `odin3-prov-steps`.
+Details, controls and screenshots: `docs/user/viz.md`; build a site and package a release: `docs/user/build-site.md`;
+the viewer has its own help page (press `?`) and a worked guide (`guide.html` on a built site).
+Current version: v0.9.3 (`heimdall.__version__`).
 
 ## The site
 
-The built site is a plain directory of static files (no server code). Peter uploads it to
-`https://drpeterjamieson.com/RESEARCH/HEIMDALL/` (`heimdall_base_url`); the Mimir III catalogue links each
-design that has a page there. Nothing is uploaded by the tools.
+The built site is a plain directory of static files (no server code). It is published at
+`https://drpeterjamieson.com/RESEARCH/HEIMDALL/` (the `--base-url`); the Mimir III catalogue links each design that has
+a page there. Nothing is uploaded by the tools. How a site is built, extended, checked and packaged as a full release:
+`docs/user/build-site.md`.
 
-First site (29 benchmarks, 21 MB, built with `heimdall site` from `heimdall-runs/site-specs.txt`; flows by Odin III
-main e5efb64e, binary `rel-main3`, VPR k6 architecture, one at a time under a 4 GB scope, `sha` through
-`tools/heavy-run`):
-
-- VerilogEval, size quartiles by Mimir `l6_luts` (rank, median and its neighbours). The picks
-  that failed the VTR flow were replaced by the next by rank. VerilogEval is SystemVerilog and the VTR flow reads
-  Verilog only (`--vtr-compat` is not supported for SystemVerilog), so the `ref` files were fed as `.v` and any
-  using `always_ff`, `logic` or sized casts failed to parse.
-  - Q1: Prob010_mt2015_q4a, Prob011_norgate, Prob012_xnorgate
-  - Q2: Prob009_popcount3, Prob024_hadd, Prob025_reduction
-  - Q3: Prob150_review2015_fsmonehot, Prob016_m2014_q4j, Prob085_shift4 (replacing Prob086_lfsr5, Prob142_lemmings2,
-    Prob096_review2015_fsmseq, Prob128_fsm_ps2, Prob148_2013_q2afsm, Prob120_fsm3s, Prob095_review2015_fsmshift)
-  - Q4: Prob123_bugs_addsubz, Prob043_vector5, Prob141_count_clock (replacing Prob154_fsm_ps2data,
-    Prob066_edgecapture, Prob068_countbcd, Prob082_lfsr32, Prob146_fsm_serialdata, Prob118_history_shift)
-  - Two designs failed `read_slang` in Mimir and have no LUT count, so they are not ranked.
-- Odin III micros that reach `route` (one construct each): bm_DL_2_1_mux, bm_DL_2_4_encoder, bm_DL_4_bit_comparator,
-  bm_DL_4_bit_shift_register, bm_DL_74381_ALU, bm_DL_BCD_adder, bm_DL_D_flipflop, bm_DL_Dff_w_synch_reset,
-  bm_DL_behavioural_full_adder, bm_my_D_latch1, bm_if_reset, bm_DL_16_1_mux, bm_dag1_log, bm_dag2_log, bm_lpm_all.
-  `bm_base_multiply` ran through VTR but the exporter fails on it (KeyError on an `hdl:sig.a/top_a.out` link, a
-  hierarchy case); it is left out until that is fixed.
-- VTR benchmarks `ch_intrinsics` and `sha`.
+Current site (v0.9.3): 60 pages in tiers from simple to complex, smallest first inside each tier: Odin III micros (one
+construct each, 15 pages), HDLBits-style problems (12 VerilogEval problems chosen by size quartile), VTR designs
+(`ch_intrinsics`, `sha`), and OpenCores designs (24 FPGA pages and seven `silicon-` ASIC pages). Pages were built from
+`odin3-flow --prov` runs of Odin III 1.5.1 to 1.6.0 with the VPR k6 architecture, one at a time under a 4 GB memory
+cap. A design whose flow fails, or whose exporter fails, has no page; the list of pages is the site index. The viewer's
+help page and guide say what each release added.
 
 ## Citations
 
