@@ -30,6 +30,7 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
 
 <nav id="toc"><b>Contents</b>
 <ol>
+  <li><a href="#update91">What's new (v0.9.1)</a></li>
   <li><a href="#update9">What's new (v0.9)</a></li>
   <li><a href="#update8">What's new (v0.8)</a></li>
   <li><a href="#update7">What's new (v0.7)</a></li>
@@ -52,11 +53,27 @@ For worked examples with screenshots, see <a href="guide.html"><b>How to use Hei
   <li><a href="#links-url">Deep links: URL parameters</a></li>
 </ol></nav>
 
+<h2 id="update91">What's new (v0.9.1): switching activity on every page that has data; the a-z80-modified page</h2>
+<ul>
+<li><b>Activity on all FPGA pages.</b> Every FPGA page of a design with a Bifrost III power run (45 vectorless runs with ACE2, 3 with the design's testbench) now has a <b>Switching activity</b> section, and
+so has every FPGA page (also those Bifrost could not run: sha3_low, sha3_high, vga_lcd, ethmac, a-z80-modified) for Odin III's own activity pass. A silicon page has activity only where Bifrost ran a
+gate-level simulation of its own netlist (mmuart, verilog_cordic_core, wb_lcd); the other silicon pages say so.</li>
+<li><b>Two sources, one picker.</b> Where a page has two sources, a menu in the section chooses; the default is a testbench if there is one, else the Odin III vectorless pass, else ACE2. The section gives
+the difference between the two on the nets both name: the mean absolute difference of P(1) and of density. <i>Odin III vectorless</i> is the <code>activity</code> pass (analytic: it propagates P(1) and
+transition density through the netlist with the primary inputs at P(1) 0.5 and density 0.2 and runs no vectors; the method and its limits are in the Odin III documentation, <code>docs/user/activity.md</code>).
+It uses the hash names of the flow netlist, so an object takes its value by name (basis <i>net</i>).</li>
+<li><b>Coverage per plane.</b> Each plane line in the section now says what share of its objects has a value (any basis). The basis stays per object: <i>net</i>, <i>line</i> (the mean over the objects of the
+same HDL line), <i>link</i> (the mean of linked objects) or none (grey). The basis is the honest part: a value on a plane that no net names is derived, and the section says how.</li>
+<li><b>Power stays Bifrost's.</b> Power columns come from Bifrost's own run and its own activity source. When you pick the Odin III source, the section says so; no power is recomputed from it.</li>
+<li><b>New page.</b> <code>opencores-a-z80-modified</code>, the Mimir variant of the A-Z80 CPU without tri-states (Odin III v1.5.1 produced its provenance). Its provenance chains cover almost every HDL construct
+(30672) for each LUT, so the page keeps the <b>first 64 links of each object</b>; the full count is in the metric <code>hdl_links</code> and the page header says that the links are capped. HDL objects of
+this page therefore reach LUTs only through the kept links or through their lines, and the activity coverage of the HDL plane is low (the number is in the section).</li>
+</ul>
 <h2 id="update9">What's new (v0.9): pipelined_fft_256 and fresh screenshots</h2>
 <ul>
 <li><b>New page.</b> <code>opencores-pipelined_fft_256</code> (a 256-point pipelined FFT/IFFT, 15769 LUTs, 5799 flip-flops). Odin III could not read it before v1.5.0.</li>
 <li><b>Screenshots.</b> Every picture on this page and in the guide was taken again with the current viewer (rainbow line colours, the red single line, bit squares).</li>
-<li><b>Not shown.</b> tiny_aes (ABC needs more than 6 GB), amber (28 million nodes, over the limit) and a-z80 (Odin III's tri-state pass cannot convert its bidirectional data bus) have no page; a-z80-modified (Mimir variant, no bidirectional buses): page in v0.9.1, waiting on an Odin III provenance fix. The index says why.</li>
+<li><b>Not shown.</b> tiny_aes (ABC needs more than 6 GB), amber (28 million nodes, over the limit) and a-z80 (Odin III's tri-state pass cannot convert its bidirectional data bus) have no page; a-z80-modified (Mimir variant, no bidirectional buses): page added in v0.9.1. The index says why.</li>
 </ul>
 <h2 id="update8">What's new (v0.8): graphlet instances</h2>
 <p>The <b>Graph analytics</b> section lists the graphlet types of a plane and mode (undirected: Przulj's 30 patterns of 2 to 5 nodes; directed: 40 patterns of 2 to 4 nodes), rare ones first, with their counts
@@ -69,7 +86,7 @@ from Odin III. Click a type to see its instances.</p>
 </ul>
 <h2 id="update7">What's new (v0.7): switching activity (Bifrost III power)</h2>
 <p>The left-hand section <b>Switching activity</b> shows what Bifrost III measured when it ran the design's own testbench. Heimdall draws the numbers as given; it does not
-recompute activity or power. Three designs have data, on both their FPGA and their silicon pages: mmuart, verilog_cordic_core and wb_lcd. Every other page says that it has none.</p>
+recompute activity or power. In v0.7 three designs had data (mmuart, verilog_cordic_core, wb_lcd); v0.9.1 adds every design with a Bifrost run and Odin III's own pass (see below). A page without data says so.</p>
 <ul>
 <li><b>Three colours.</b> Static probability (the share of time a net is 1), transition density (0-to-1 and 1-to-0 changes per clock cycle) and power (microwatts). Transition density and
 power end their colour range at the 98th percentile, because the clock nets toggle twice per cycle and would hide everything else; larger values take the top colour.</li>

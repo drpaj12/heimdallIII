@@ -28,16 +28,26 @@ async () => {
     const says = text.includes("No switching-activity data");
     return { ok: says, none: true };
   }
-  const per = {};
-  for (const k of ["act_p1", "act_td", "act_pw"]) {
-    o.setColour(k);
-    per[k] = {};
-    for (const p of S.man.activity.planes) {
-      per[k][p] = (S.planes[p].metrics[k] ?? []).filter((v) => v !== null).length;
+  const out = { ok: true, sources: {} };
+  for (const s of S.act.sources) {
+    await o.switchActivity(s.key);
+    const per = {};
+    for (const k of ["act_p1", "act_td", "act_pw"]) {
+      o.setColour(k);
+      per[k] = {};
+      for (const p of S.man.activity.planes) {
+        per[k][p] = (S.planes[p].metrics[k] ?? []).filter((v) => v !== null).length;
+      }
     }
+    const lacking = S.man.activity.planes.filter((p) => !per.act_p1[p] && !per.act_pw[p] && S.act.data.coverage[p].none < S.planes[p].ids.length);
+    const cov = S.act.data.coverage, tot = Object.values(cov).reduce((n, c) => n + c.net + c.line + c.link + c.none, 0);
+    const got = Object.values(cov).reduce((n, c) => n + c.net + c.line + c.link, 0);
+    out.sources[s.key] = { lacking, joined: `${got}/${tot}` };
+    out.ok = out.ok && lacking.length === 0;
   }
-  const lacking = S.man.activity.planes.filter((p) => !per.act_p1[p] && !per.act_pw[p]);
-  return { ok: lacking.length === 0, per, lacking, source: a.source_label, target: a.target };
+  await o.switchActivity(S.act.sources[0].key);
+  out.default = S.act.sources[0].key;
+  return out;
 }
 """
 

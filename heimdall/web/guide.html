@@ -32,6 +32,7 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 <a href="index.html">index</a>.</p>
 <nav id="toc"><b>Examples</b>
 <ol>
+  <li><a href="#update91">What's new (v0.9.1)</a></li>
   <li><a href="#update9">What's new (v0.9)</a></li>
   <li><a href="#update8">What's new (v0.8)</a></li>
   <li><a href="#update7">What's new (v0.7)</a></li>
@@ -54,10 +55,17 @@ with what to notice, and a link that opens the viewer in that exact state (the l
 </ol></nav>
 <p>The viewer needs a browser with WebGL. Drag to rotate, right-drag to pan, wheel to zoom, click to select. Click empty space to clear the selection.
 Every picture below is a real screenshot of the viewer on the benchmark named above it, taken with the link beside it.</p>
+<section id="update91" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
+<h2>What's new (v0.9.1)</h2>
+<ul>
+<li><b>Switching activity on every page that has data.</b> Open any FPGA page and unfold <b>Switching activity</b>: a Bifrost III run (ACE2 vectorless, or the design's testbench) and Odin III's own vectorless pass colour every plane by P(1), transition density and, from Bifrost, power. A menu picks the source when a page has two, and the section gives the mean difference between them on the nets both name. Each plane line says what share of its objects has a value and by which basis (name, line, link). A silicon page has activity only where Bifrost simulated its own netlist (mmuart, verilog_cordic_core, wb_lcd). Details in <a href="help.html#update91">help</a>.</li>
+<li><b>New page:</b> <code>opencores-a-z80-modified</code>, with the first 64 provenance links of each object (its chains cover almost every HDL construct).</li>
+</ul>
+</section>
 <section id="update9" class="new" style="border-left:3px solid var(--acc);padding:.2rem 1rem;margin:1rem 0;background:#ffb4540d">
 <h2>What's new (v0.9)</h2>
 <ul>
-<li><b>New page:</b> <code>opencores-pipelined_fft_256</code>, a 256-point pipelined FFT/IFFT. a-z80-modified (Mimir variant, no bidirectional buses): page in v0.9.1, waiting on an Odin III provenance fix. Details in <a href="help.html#update9">help</a>.</li>
+<li><b>New page:</b> <code>opencores-pipelined_fft_256</code>, a 256-point pipelined FFT/IFFT. The a-z80-modified page (Mimir variant, no bidirectional buses) came in v0.9.1. Details in <a href="help.html#update9">help</a>.</li>
 <li><b>Every screenshot below was retaken</b> with the current viewer.</li>
 </ul>
 </section>
