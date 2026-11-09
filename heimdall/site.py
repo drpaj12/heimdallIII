@@ -140,6 +140,7 @@ def _viewer_page(text: str) -> str:
         text.replace("./vendor/", "../_assets/vendor/")
         .replace("./app.js", "../_assets/app.js")
         .replace('href="help.html"', 'href="../help.html"')
+        .replace("<body>", '<body data-order="../_assets/order.json">')
     )
 
 

@@ -1481,8 +1481,10 @@ function setupTouch(cv, cancelTap) {
 
 // previous / next page in the complexity order of the index (the site writes _assets/order.json; absent when served locally)
 async function setupOrderNav() {
+  const url = document.body.dataset.order; // set by the site builder only
+  if (!url) return;
   try {
-    const r = await fetch("../_assets/order.json");
+    const r = await fetch(url);
     if (!r.ok) return;
     const slugs = (await r.json()).slugs, here = decodeURIComponent(location.pathname.split("/").filter(Boolean).pop() ?? "");
     const i = slugs.indexOf(here);
