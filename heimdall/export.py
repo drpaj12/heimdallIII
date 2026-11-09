@@ -362,18 +362,39 @@ def find_files(flow: Path) -> FlowFiles:
     )
 
 
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [
-        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
-    ]
+LINK_CAP = 64  # links kept per provenance object; a design whose chains cover most of it is capped
+
+
+def read_jsonl(path: Path, cap: int | None = None) -> list[dict[str, Any]]:
+    """The objects of a JSON-lines file, one line at a time. With `cap`, an object with more
+    links keeps its first `cap` and gets `links_total` (the full count) and `links_capped`."""
+    out: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            o = json.loads(line)
+            lks = o.get("links")
+            if cap is not None and lks is not None and len(lks) > cap:
+                o["links_total"] = len(lks)
+                o["links_capped"] = True
+                o["links"] = lks[:cap]
+            out.append(o)
+    return out
 
 
 def read_steps(prov: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any]]]]:
     index = json.loads((prov / "index.json").read_text(encoding="utf-8"))
     objs: dict[str, list[dict[str, Any]]] = {}
+    capped = total = 0
     for step in index["steps"]:
         if step.get("objects"):
-            objs[step["stage"]] = read_jsonl(prov / step["objects"])
+            objs[step["stage"]] = read_jsonl(prov / step["objects"], LINK_CAP)
+            for o in objs[step["stage"]]:
+                capped += bool(o.get("links_capped"))
+                total = max(total, o.get("links_total", 0))
+    if capped:
+        index["link_cap"] = {"cap": LINK_CAP, "objects": capped, "max_links": total}
     return index, objs
 
 
@@ -473,7 +494,7 @@ def build_lut(
         drv = nl.drivers.get(net, "")
         plane.add(o["id"], o["kind"], drv or o["kind"], o["origin"], o["name"], src_of(o))
         hdl = [lk for lk in o.get("links", []) if lk["to"].startswith("hdl:")]
-        hl[o["id"]] = float(len(hdl))
+        hl[o["id"]] = float(o.get("links_total", len(hdl)))
         if o.get("links"):
             wc[o["id"]] = float(min(CONF_RANK.get(lk["confidence"], 0) for lk in o["links"]))
         if net in nl.drivers:
@@ -1106,6 +1127,7 @@ def export_bundle(
         ],
         "buses": bus_table(planes, meta["signals"]),
         "notes": meta["notes"],
+        **({"link_cap": meta["index"]["link_cap"]} if "link_cap" in meta["index"] else {}),
         "select_cells": meta["selects"],
         "grid": list(grid),
         "graphs": {

@@ -32,7 +32,13 @@ SOURCE_LABEL = {
     "iverilog-gate": "iverilog gate-level (the design's testbench on the post-synthesis netlist)",
     "odin3-replay": "Odin III replay (RTL names, port waveform replayed)",
     "ace2": "vectorless (ACE2)",
+    "odin3-sim": "Odin III simulation (the design's testbench through the netlist)",
+    "odin3-vectorless": "Odin III vectorless (the activity pass: analytic, no vectors)",
 }
+# default source of a page that has several: a testbench first, then Odin III's pass, then ACE2
+PREFERENCE = ("iverilog-gate", "odin3-replay", "odin3-sim", "odin3-vectorless", "ace2")
+VL = "odin3-vectorless"
+VL_FILE = "odin3-activity.json"  # `odin3 activity --json` of the same netlist, hash names
 CLIP = 0.98  # the viewer's colour range of act_td and act_pw ends at this quantile
 LINE_CAP = 300  # rows of the per-line table kept in the file
 
@@ -60,10 +66,15 @@ class Dataset:
 
     def __init__(self, root: Path) -> None:
         pj = root / "power.json"
-        if not pj.is_file():
-            raise ActivityError(f"{root}: no power.json")
-        self.power: dict[str, Any] = json.loads(pj.read_text(encoding="utf-8"))
-        if self.power.get("version") != 1:
+        self.vl_nets: dict[str, tuple[float, float]] = {}
+        self.vl_meta: dict[str, Any] = {}
+        self._read_vectorless(root / VL_FILE)
+        if not pj.is_file() and not self.vl_nets:
+            raise ActivityError(f"{root}: no power.json and no {VL_FILE}")
+        self.power: dict[str, Any] = (
+            json.loads(pj.read_text(encoding="utf-8")) if pj.is_file() else {}
+        )
+        if self.power and self.power.get("version") != 1:
             raise ActivityError(f"{pj}: schema version {self.power.get('version')}, expected 1")
         meta = root / "meta.json"  # optional: {"bifrost": "wyrd 5e9d0361"}, shown as the source
         self.bifrost: str = (
@@ -106,9 +117,30 @@ class Dataset:
                 acc[1] += act[0]
                 acc[2] += act[1]
 
+    def _read_vectorless(self, path: Path) -> None:
+        """`odin3 activity --json` (schema odin3-activity v1): per net name, p1, d."""
+        if not path.is_file():
+            return
+        js = json.loads(path.read_text(encoding="utf-8"))
+        if js.get("schema") not in (None, "odin3-activity") or js.get("version", 1) != 1:
+            raise ActivityError(f"{path}: not an odin3-activity version 1 file")
+        for n in js.get("nets", []):
+            self.vl_nets[str(n["name"])] = (float(n["p1"]), float(n["d"]))
+        self.vl_meta = {k: v for k, v in js.items() if k != "nets"}
+
     def has(self, target: str) -> bool:
         t = self.power.get("targets", {}).get(target)
         return bool(t) and "error" not in t
+
+    def sources(self, target: str) -> list[str]:
+        """Activity sources this design can show on a page of `target`, default first."""
+        got = []
+        if self.has(target):
+            got.append(str(self.power.get("activity", {}).get("source", "iverilog-gate")))
+        if target == "fpga" and self.vl_nets:
+            got.append(VL)
+        got = list(dict.fromkeys(got))
+        return sorted(got, key=lambda k: PREFERENCE.index(k) if k in PREFERENCE else 99)
 
     def has_line_power(self, target: str) -> bool:
         """False when Bifrost gave no per-line power table for the target (the page says so)."""
@@ -182,17 +214,41 @@ def _neighbours(
     return adj
 
 
-def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
-    """The activity.json content of one bundle."""
+def _derived_lines(
+    planes: dict[str, dict[str, Any]], vals: dict[str, dict[str, list[Any]]], direct: set[str]
+) -> dict[tuple[str, int], list[float]]:
+    """Per (file, first line) n, sum P(1), sum density of the objects that took a value by name:
+    the line table of a source that has no file:line per net (the Odin III pass)."""
+    out: dict[tuple[str, int], list[float]] = {}
+    for p in direct:
+        v, src = vals[p], planes[p].get("src") or []
+        for i, b in enumerate(v["basis"]):
+            sp = first_span(src[i]) if b == 1 and i < len(src) and src[i] else None
+            if sp and v["p1"][i] is not None:
+                acc = out.setdefault((sp[0], sp[1]), [0.0, 0.0, 0.0])
+                acc[0] += 1
+                acc[1] += v["p1"][i]
+                acc[2] += v["td"][i]
+    return out
+
+
+def build(bundle: Path, ds: Dataset, target: str, source: str | None = None) -> dict[str, Any]:
+    """The activity.json content of one bundle for one source (default: the design's first)."""
     man = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
     parts = man.get("parts") or {}
     order: list[str] = man["planes"]
     ptarget: dict[str, str] = man.get("plane_targets", {})
     planes = {p: _read(bundle, f"planes/{p}.json", parts) for p in order}
     links = _read(bundle, "links.json", parts)
+    avail = ds.sources(target)
+    src_key = source or avail[0]
+    if src_key not in avail:
+        raise ActivityError(f"source {src_key} not available for a {target} page")
+    vl = src_key == VL
+    fnets = ds.vl_nets if vl else ds.fpga_nets
     pwl = ds.line_power(target)
     line_pw = ds.has_line_power(target)
-    table = LineTable(ds.fpga_line if target == "fpga" else ds.asic_line, pwl)
+    table = LineTable(ds.fpga_line if target == "fpga" and not vl else ds.asic_line, pwl)
     direct = {p for p in DIRECT[target] if p in planes and ptarget.get(p) == target}
     vals: dict[str, dict[str, list[Any]]] = {}
     for p in order:
@@ -202,8 +258,8 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
     for p in direct:
         v = vals[p]
         for i, name in enumerate(planes[p]["name"]):
-            if target == "fpga" and name in ds.fpga_nets:
-                v["p1"][i], v["td"][i] = ds.fpga_nets[name]
+            if target == "fpga" and name in fnets:
+                v["p1"][i], v["td"][i] = fnets[name]
                 v["basis"][i] = 1
             elif target == "asic" and name in ds.asic_inst:
                 a, b, w = ds.asic_inst[name]
@@ -211,6 +267,8 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
             elif target == "asic" and name in ds.asic_nets:
                 v["p1"][i], v["td"][i] = ds.asic_nets[name]
                 v["basis"][i] = 1
+    if vl:
+        table = LineTable(_derived_lines(planes, vals, direct), pwl)
     # tier 2: the HDL line range of the object's first span (hdl objects, and objects Bifrost named
     # differently)
     for p in order:
@@ -274,34 +332,60 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
         for k in ("p1", "td", "pw"):
             vals[p][k] = [None if x is None else float(f"{x:.6g}") for x in vals[p][k]]
     pw = ds.power
-    t = pw["targets"][target]
-    src_key = pw.get("activity", {}).get("source", "iverilog-gate")
-    lines = _line_rows(table, pwl)
+    t = pw.get("targets", {}).get(target, {})
+    bif_key = str(pw.get("activity", {}).get("source", "")) if pw else ""
+    lines = _line_rows(table, pwl, _canon(planes))
+    mp = "lut" if "lut" in direct else next(iter(sorted(direct)), "")
+    n_mp = len(planes[mp]["ids"]) if mp else 0
+    matched = (
+        cov[mp]["net"] / n_mp
+        if vl and n_mp
+        else t.get("matched_fraction", pw.get("activity", {}).get("matched_fraction"))
+    )
+    tool = {
+        **({"bifrost": f"Bifrost III ({ds.bifrost})"} if ds.bifrost and not vl else {}),
+        **{k: t[k] for k in ("arch", "tech", "method", "pdk", "parasitics") if k in t},
+    }
+    warnings = list(t.get("warnings", []))
+    if vl:
+        m = ds.vl_meta
+        tool = {
+            "odin3": "activity pass (analytic, no vectors; primary inputs P1 0.5, density 0.2)",
+            "nets": f"{len(ds.vl_nets)} nets, {m.get('iterations', '-')} iterations"
+            + (", converged" if m.get("converged") else ", NOT converged"),
+        }
+        if m.get("converged") is False:
+            warnings.append(
+                "the activity fixpoint did not converge: values are those of the last sweep"
+            )
     out: dict[str, Any] = {
         "version": VERSION,
-        "design": pw["design"],
+        "design": pw.get("design", ""),
         "target": target,
         "source": src_key,
         "source_label": SOURCE_LABEL.get(src_key, src_key),
-        "testbench": pw.get("testbench"),
-        "tb_pass": pw.get("tb_pass"),
+        "join": "net",
+        "testbench": None if vl else pw.get("testbench"),
+        "tb_pass": None if vl else pw.get("tb_pass"),
         "clock": pw.get("clock"),
-        "cycles": pw.get("cycles"),
-        "start_state": t.get("start_state", pw.get("start_state")),
-        "matched_fraction": t.get(
-            "matched_fraction", pw.get("activity", {}).get("matched_fraction")
-        ),
+        "cycles": None if vl else pw.get("cycles"),
+        "start_state": None if vl else t.get("start_state", pw.get("start_state")),
+        "matched_fraction": matched,
+        "power_source": SOURCE_LABEL.get(bif_key, bif_key) if (vl and t) else None,
         "totals": {
             k: t[k] for k in t if isinstance(t[k], (int, float)) and not isinstance(t[k], bool)
         },
-        "tool": {
-            **({"bifrost": f"Bifrost III ({ds.bifrost})"} if ds.bifrost else {}),
-            **{k: t[k] for k in ("arch", "tech", "method", "pdk", "parasitics") if k in t},
-        },
-        "warnings": t.get("warnings", []),
-        "caveats": caveats(target),
+        "tool": tool,
+        "warnings": warnings,
+        "caveats": caveats(target, vl),
         "line_power": (
-            "model" if target == "fpga" else "per-instance" if line_pw else "not available"
+            "none"
+            if not pwl
+            else "model"
+            if target == "fpga"
+            else "per-instance"
+            if line_pw
+            else "not available"
         ),
         "lines": lines,
         "coverage": cov,
@@ -310,7 +394,19 @@ def build(bundle: Path, ds: Dataset, target: str) -> dict[str, Any]:
     return out
 
 
-def caveats(target: str) -> list[str]:
+def caveats(target: str, vectorless: bool = False) -> list[str]:
+    if vectorless:
+        return [
+            "Odin III's activity pass computes P(1) and transition density analytically from the "
+            "netlist with the primary inputs at P(1) 0.5 and density 0.2; no vectors are run. "
+            "It treats the inputs of a node as independent (reconvergent fanout is its main "
+            "error) and starts flip-flops at 0.5, so a testbench that never leaves a reset "
+            "state is not seen.",
+            "Names are the hash names of the flow netlist, so the join is by object name "
+            "(basis 'net'); the HDL line table is built from the objects that took a value by "
+            "name. Power columns, where shown, are Bifrost's, computed from its own activity "
+            "source; they are not recomputed from this one.",
+        ]
     common = [
         "Activity is that of the design's own testbench (a short directed test, not a "
         "workload); glitch power is not counted.",
@@ -341,13 +437,26 @@ def caveats(target: str) -> list[str]:
     ]
 
 
-def _line_rows(table: LineTable, power: dict[tuple[str, int], float]) -> list[list[Any]]:
+def _canon(planes: dict[str, dict[str, Any]]) -> dict[str, str]:
+    """Base name -> the file name the planes use, where that is unique (the viewer keys its
+    source texts by the planes' names, which can carry a directory)."""
+    seen: dict[str, set[str]] = defaultdict(set)
+    for pl in planes.values():
+        for srcs in pl.get("src") or []:
+            for f, _ in srcs:
+                seen[Path(f).name].add(f)
+    return {b: next(iter(fs)) for b, fs in seen.items() if len(fs) == 1}
+
+
+def _line_rows(
+    table: LineTable, power: dict[tuple[str, int], float], canon: dict[str, str]
+) -> list[list[Any]]:
     rows: list[list[Any]] = []
     for f, d in table.files.items():
         for ln, (n, sp, st, w) in d.items():
             rows.append(
                 [
-                    f,
+                    canon.get(f, f),
                     ln,
                     int(n),
                     round(sp / n, 4) if n else None,
@@ -359,8 +468,11 @@ def _line_rows(table: LineTable, power: dict[tuple[str, int], float]) -> list[li
     return rows[:LINE_CAP]
 
 
-def metric_entries(target: str, planes: list[str], source: str) -> list[dict[str, Any]]:
+def metric_entries(
+    target: str, planes: list[str], source: str, key: str = ""
+) -> list[dict[str, Any]]:
     on = [p for p in planes]
+    origin = "Odin III activity pass" if key == VL else "Bifrost III"
     how = {
         "fpga": "Bifrost III vpr --power",
         "asic": "Bifrost III OpenROAD report_power",
@@ -372,7 +484,7 @@ def metric_entries(target: str, planes: list[str], source: str) -> list[dict[str
             "planes": on,
             "scale": "seq",
             "target": target,
-            "source": f"Bifrost III, {source}",
+            "source": f"{origin}, {source}",
             "measurer": "static probability: time at 1 / time at 0 or 1 over the testbench",
         },
         {
@@ -382,7 +494,7 @@ def metric_entries(target: str, planes: list[str], source: str) -> list[dict[str
             "scale": "seq",
             "clip": CLIP,
             "target": target,
-            "source": f"Bifrost III, {source}",
+            "source": f"{origin}, {source}",
             "measurer": "transition density: 0<->1 transitions per rising clock edge",
         },
         {
@@ -398,38 +510,82 @@ def metric_entries(target: str, planes: list[str], source: str) -> list[dict[str
     ]
 
 
-def apply(bundle: Path, ds: Dataset, target: str, part_bytes: int = 40_000_000) -> dict[str, Any]:
-    """Write bundle/activity/activity.json (packed like the other files when the bundle is) and
-    update the manifest. Returns the manifest entry."""
-    data = build(bundle, ds, target)
-    man = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
-    adir = bundle / "activity"
-    adir.mkdir(exist_ok=True)
+def _nets_of(ds: Dataset, key: str) -> dict[str, tuple[float, float]]:
+    return ds.vl_nets if key == VL else ds.fpga_nets
+
+
+def compare(ds: Dataset, a: str, b: str) -> dict[str, Any] | None:
+    """Mean absolute difference of P(1) and density over the nets both FPGA sources name."""
+    na, nb = _nets_of(ds, a), _nets_of(ds, b)
+    common = [k for k in na if k in nb]
+    if not common:
+        return None
+    return {
+        "other": b,
+        "other_label": SOURCE_LABEL.get(b, b),
+        "nets": len(common),
+        "p1_mae": round(sum(abs(na[k][0] - nb[k][0]) for k in common) / len(common), 4),
+        "density_mae": round(sum(abs(na[k][1] - nb[k][1]) for k in common) / len(common), 4),
+    }
+
+
+def _write(
+    bundle: Path, man: dict[str, Any], rel: str, data: dict[str, Any], part_bytes: int
+) -> None:
+    """activity/<name>.json (packed like the other files when the bundle is)."""
     raw = (json.dumps(data, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
     parts = man.get("parts")
     if parts is not None:
         blob = gzip.compress(raw, compresslevel=9, mtime=0)
         names = []
         for i in range(0, max(len(blob), 1), part_bytes):
-            name = f"activity/activity.json.gz.{i // part_bytes:03d}"
+            name = f"{rel}.gz.{i // part_bytes:03d}"
             (bundle / name).write_bytes(blob[i : i + part_bytes])
             names.append(name)
-        parts["activity/activity.json"] = names
+        parts[rel] = names
     else:
-        (adir / "activity.json").write_bytes(raw)
+        (bundle / rel).write_bytes(raw)
+
+
+def _file_of(key: str, default: str) -> str:
+    return "activity/activity.json" if key == default else f"activity/activity-{key}.json"
+
+
+def apply(bundle: Path, ds: Dataset, target: str, part_bytes: int = 40_000_000) -> dict[str, Any]:
+    """Write bundle/activity/ (one file per source; the default is activity.json) and update the
+    manifest. Returns the manifest entry."""
+    keys = ds.sources(target)
+    if not keys:
+        raise ActivityError(f"no activity source for a {target} page")
+    default = keys[0]
+    man = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+    (bundle / "activity").mkdir(exist_ok=True)
+    for old in (bundle / "activity").glob("activity*"):
+        old.unlink()
+    for k in [k for k in man.get("parts", {}) if k.startswith("activity/")]:
+        del man["parts"][k]
+    datas = {k: build(bundle, ds, target, k) for k in keys}
+    for k, d in datas.items():
+        d["compare"] = [c for o in keys if o != k and (c := compare(ds, k, o))]
+        _write(bundle, man, _file_of(k, default), d, part_bytes)
+    data = datas[default]
     planes = [
         p
         for p in man["planes"]
-        if any(x is not None for x in data["planes"][p]["p1"])
-        or any(x is not None for x in data["planes"][p]["pw"])
+        if any(any(x is not None for x in d["planes"][p]["p1"]) for d in datas.values())
+        or any(any(x is not None for x in d["planes"][p]["pw"]) for d in datas.values())
     ]
     man["metrics"] = [m for m in man["metrics"] if not m["name"].startswith("act_")]
-    man["metrics"] += metric_entries(target, planes, data["source_label"])
+    man["metrics"] += metric_entries(target, planes, data["source_label"], default)
     entry = {
         "target": target,
         "source": data["source"],
         "source_label": data["source_label"],
         "planes": planes,
+        "sources": [
+            {"key": k, "label": d["source_label"], "file": _file_of(k, default), "join": d["join"]}
+            for k, d in datas.items()
+        ],
     }
     man["activity"] = entry
     (bundle / "manifest.json").write_text(
@@ -444,5 +600,12 @@ def target_of(bundle: Path) -> str | None:
     return {"vtr": "fpga", "silicon": "asic"}.get(man.get("flow", ""))
 
 
+SUITE_PREFIX = ("odin3-micro-", "vtr-verilog-", "verilogeval-", "opencores-", "silicon-")
+
+
 def design_of(slug: str) -> str:
+    """The design directory name of a page slug (the suite prefix removed)."""
+    for pre in SUITE_PREFIX:
+        if slug.startswith(pre):
+            return slug[len(pre) :]
     return slug.partition("-")[2]
