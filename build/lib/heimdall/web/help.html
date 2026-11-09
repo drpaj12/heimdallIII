@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heimdall III help</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; --bg:#14171c; --panel:#1d2229; --line:#323a45; --fg:#d8dee6; --dim:#8b96a3; --acc:#ffb454; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 52rem; margin: 0 auto; padding: 1.5rem 1.2rem 4rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 .2rem; } h2 { font-size: 1.2rem; margin: 2.2rem 0 .4rem; border-bottom: 1px solid var(--line); padding-bottom: .2rem; }
+  h3 { font-size: 1rem; margin: 1.2rem 0 .2rem; color: var(--acc); }
+  a { color: #8fc1ff; } code, kbd { background:#10131a; border:1px solid var(--line); border-radius:3px; padding:0 .3em; font: .88em ui-monospace, Consolas, monospace; }
+  kbd { border-bottom-width: 2px; }
+  nav { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: .5rem 1rem; }
+  nav ol { margin: .2rem 0; padding-left: 1.4rem; columns: 2; }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0; font-size: .92em; }
+  th, td { border: 1px solid var(--line); padding: .25rem .5rem; text-align: left; vertical-align: top; } th { background: var(--panel); }
+  figure { margin: .8rem 0; } figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 4px; } figcaption { color: var(--dim); font-size: .85em; }
+  .try { background: #ffb4541a; border-left: 3px solid var(--acc); padding: .3rem .8rem; margin: .6rem 0; }
+  .try b { color: var(--acc); }
+  .dim { color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<h1>Heimdall III help <span class="dim" style="font-size:.6em">@@VERSION@@</span></h1>
+<p class="dim">What you are looking at in the 3D provenance viewer, and what each control does. Press <kbd>?</kbd> in the viewer to open it.
+For worked examples with screenshots, see <a href="guide.html"><b>How to use Heimdall</b></a>.</p>
+
+<nav id="toc"><b>Contents</b>
+<ol>
+  <li><a href="#update93">What's new (v0.9.3)</a></li>
+  <li><a href="#update92">What's new (v0.9.2)</a></li>
+  <li><a href="#update91">What's new (v0.9.1)</a></li>
+  <li><a href="#update9">What's new (v0.9)</a></li>
+  <li><a href="#update8">What's new (v0.8)</a></li>
+  <li><a href="#update7">What's new (v0.7)</a></li>
+  <li><a href="#update6">What's new (update 6)</a></li>
+  <li><a href="#update5">What's new (update 5)</a></li>
+  <li><a href="#update4">What's new (update 4)</a></li>
+  <li><a href="#planes">What you are looking at: the planes</a></li>
+  <li><a href="#links">Provenance links and columns</a></li>
+  <li><a href="#hdl">The HDL pane and selecting lines</a></li>
+  <li><a href="#tiers">Case tiers A, B, C and the graded mix</a></li>
+  <li><a href="#buses">Buses and flip-flops</a></li>
+  <li><a href="#channels">Colour, size, height, fade; metrics; joins</a></li>
+  <li><a href="#anchors">Anchors and layouts; the Hutton and Kundarewich panel</a></li>
+  <li><a href="#paths">Paths and SCOAP</a></li>
+  <li><a href="#discovery">Discovery, 2D view, morph, brush, grouping</a></li>
+  <li><a href="#camera">Planes and camera</a></li>
+  <li><a href="#panels">Collapsible panels</a></li>
+  <li><a href="#keys">Keyboard shortcuts</a></li>
+  <li><a href="#limits">Known limits per plane</a></li>
+  <li><a href="#links-url">Deep links: URL parameters</a></li>
+</ol></nav>
+
+<h2 id="update93">What's new (v0.9.3): three pages rebuilt so that activity joins by name</h2>
+<ul>
+<li><b>mips_16, attiny_atmega_xmega_core and sha3_high were rebuilt.</b> Their v0.9.1 bundles came from one flow run and their activity from another netlist, so many hash names did not agree. Each page now comes from one fresh <code>odin3-flow --prov</code> run (Odin III 1.6.0), Odin III's activity pass runs on that same netlist, and the names join one to one. The Bifrost III ACE2 source stays where its names still join (mips_16, attiny); its numbers were computed on an earlier netlist, so the coverage of that source is lower and is shown as it is.</li>
+<li><b>Output pads take their net's value.</b> VPR names the pad of a primary output <code>out:NAME</code>; the join now looks the plain net name up when only that name was measured, on every page (basis <i>net</i>).</li>
+<li><b>What still has no value, and why.</b> Objects that are not a net of the mapped netlist cannot be joined by name: nets the mapper absorbed into a LUT (they are in the name map, not in the BLIF; they take their HDL line when the line has a value), HDL declarations and modules, and data-dependence nodes without a source span. They show <i>none</i> in the basis column instead of an invented value.</li>
+</ul>
+
+<h2 id="update92">What's new (v0.9.2): pages in rising complexity; touch zoom on a phone</h2>
+<ul>
+<li><b>Pages in complexity order.</b> The index lists the pages in tiers from micro ideas upwards: Odin III micros, HDLBits-style problems, small VTR designs, OpenCores small, medium and large, big VTR designs; inside a tier by LUT count, then flip-flop count. Each silicon page follows its FPGA twin. The sentence at the top of the index states the key. In a viewer, the left panel has <i>simpler</i> and <i>more complex</i> links to the neighbours in that order.</li>
+<li><b>Touch.</b> One finger rotates (in a single-plane view it pans), two fingers pan, pinching zooms towards the pinch centre, a tap selects. The <b>+</b>, <b>&minus;</b> and <b>fit</b> buttons at the lower right of the 3D view zoom about its middle and reset the camera. On a screen under 800 px wide the side panels start collapsed so the 3D view has room; the arrow buttons open them.</li>
+</ul>
+
+<h2 id="update91">What's new (v0.9.1): switching activity on every page that has data; the a-z80-modified page</h2>
+<ul>
+<li><b>Activity on all FPGA pages.</b> Every FPGA page of a design with a Bifrost III power run (45 vectorless runs with ACE2, 3 with the design's testbench) now has a <b>Switching activity</b> section, and
+so has every FPGA page (also those Bifrost could not run: sha3_low, sha3_high, vga_lcd, ethmac, a-z80-modified) for Odin III's own activity pass. A silicon page has activity only where Bifrost ran a
+gate-level simulation of its own netlist (mmuart, verilog_cordic_core, wb_lcd); the other silicon pages say so.</li>
+<li><b>Two sources, one picker.</b> Where a page has two sources, a menu in the section chooses; the default is a testbench if there is one, else the Odin III vectorless pass, else ACE2. The section gives
+the difference between the two on the nets both name: the mean absolute difference of P(1) and of density. <i>Odin III vectorless</i> is the <code>activity</code> pass (analytic: it propagates P(1) and
+transition density through the netlist with the primary inputs at P(1) 0.5 and density 0.2 and runs no vectors; the method and its limits are in the Odin III documentation, <code>docs/user/activity.md</code>).
+It uses the hash names of the flow netlist, so an object takes its value by name (basis <i>net</i>).</li>
+<li><figure><img src="images/activity-sources.png" alt="the Switching activity section on opencores-mmuart with the source picker"><figcaption>opencores-mmuart: the source picker, the difference between the two sources, Bifrost's totals and the coverage per plane.</figcaption></figure></li>
+<li><b>Coverage per plane.</b> Each plane line in the section now says what share of its objects has a value (any basis). The basis stays per object: <i>net</i>, <i>line</i> (the mean over the objects of the
+same HDL line), <i>link</i> (the mean of linked objects) or none (grey). The basis is the honest part: a value on a plane that no net names is derived, and the section says how.</li>
+<li><b>Power stays Bifrost's.</b> Power columns come from Bifrost's own run and its own activity source. When you pick the Odin III source, the section says so; no power is recomputed from it.</li>
+<li><b>New page.</b> <code>opencores-a-z80-modified</code>, the Mimir variant of the A-Z80 CPU without tri-states (Odin III v1.5.1 produced its provenance). Its provenance chains cover almost every HDL construct
+(30672) for each LUT, so the page keeps the <b>first 64 links of each object</b>; the full count is in the metric <code>hdl_links</code> and the page header says that the links are capped. HDL objects of
+this page therefore reach LUTs only through the kept links or through their lines, and the activity coverage of the HDL plane is low (the number is in the section).</li>
+</ul>
+<h2 id="update9">What's new (v0.9): pipelined_fft_256 and fresh screenshots</h2>
+<ul>
+<li><b>New page.</b> <code>opencores-pipelined_fft_256</code> (a 256-point pipelined FFT/IFFT, 15769 LUTs, 5799 flip-flops). Odin III could not read it before v1.5.0.</li>
+<li><b>Screenshots.</b> Every picture on this page and in the guide was taken again with the current viewer (rainbow line colours, the red single line, bit squares).</li>
+<li><b>Not shown.</b> tiny_aes (ABC needs more than 6 GB), amber (28 million nodes, over the limit) and a-z80 (Odin III's tri-state pass cannot convert its bidirectional data bus) have no page; a-z80-modified (Mimir variant, no bidirectional buses): page added in v0.9.1. The index says why.</li>
+</ul>
+<h2 id="update8">What's new (v0.8): graphlet instances</h2>
+<p>The <b>Graph analytics</b> section lists the graphlet types of a plane and mode (undirected: Przulj's 30 patterns of 2 to 5 nodes; directed: 40 patterns of 2 to 4 nodes), rare ones first, with their counts
+from Odin III. Click a type to see its instances.</p>
+<ul>
+<li><b>Which types.</b> Every type that has at least one instance on the plane and mode can be picked (rare ones first); types with 0 instances are greyed and cannot be clicked. The list of a plane and mode is a separate file that the viewer fetches only when you pick a type, so the page loads as fast as before.</li>
+<li><b>Colours.</b> Two instances conflict when they share a node or when an edge joins a node of one to a node of the other. Heimdall colours the conflicts with DSatur (Brelaz 1979), a greedy map-colouring method, so touching instances get different colours. The legend gives the number of colours used; with more than 8 the colours repeat. A node shared by instances of different colours is drawn as a pie of those colours.</li>
+<li><b>Never silent.</b> The line under the table reads "G7: 400 of 1234 instances (cut at 400, not all shown)" when a list was cut; the total is always Odin III's exact count (the enumeration continues past the cut). Without a list in the bundle, the line says which Odin III is needed (rel-main4 or later).</li>
+<li><b>Where the numbers come from.</b> The instances are Odin III's: the same enumeration as the orbit counts, so the number of instances of a type equals the orbit total divided by the orbit size (checked by Odin III's tests and by Heimdall's test on a real bundle). The compare-any-selection port is now pinned to Odin III's full-precision metrics (1e-9).</li>
+</ul>
+<h2 id="update7">What's new (v0.7): switching activity (Bifrost III power)</h2>
+<p>The left-hand section <b>Switching activity</b> shows what Bifrost III measured when it ran the design's own testbench. Heimdall draws the numbers as given; it does not
+recompute activity or power. In v0.7 three designs had data (mmuart, verilog_cordic_core, wb_lcd); v0.9.1 adds every design with a Bifrost run and Odin III's own pass (see below). A page without data says so.</p>
+<ul>
+<li><b>Three colours.</b> Static probability (the share of time a net is 1), transition density (0-to-1 and 1-to-0 changes per clock cycle) and power (microwatts). Transition density and
+power end their colour range at the 98th percentile, because the clock nets toggle twice per cycle and would hide everything else; larger values take the top colour.</li>
+<li><b>Source.</b> The panel states where the activity came from: iverilog gate-level (the testbench run on the post-synthesis netlist), Odin III replay, or vectorless (ACE2). The
+pages here use the gate-level source. It also shows the testbench, the cycles, the start state of the latches, the share of nets that carry a measured value, and Bifrost's totals (total,
+dynamic, static, clock, frequency, energy per cycle).</li>
+<li><b>How a value reaches an object.</b> A net or instance whose name is the name Bifrost used takes its own value (basis <i>net</i>). The FPGA pages were built from a different Odin III
+netlist than the one Bifrost simulated, so many LUT names differ: such an object takes the mean over the nets Bifrost measured on the same HDL line (<i>line</i>), or the mean of its linked
+objects (<i>link</i>); an object with neither stays grey. The panel counts the objects of each plane by basis, and a check box limits the colouring to exact name matches. On the silicon pages
+the cells, die instances and routed nets are matched by name.</li>
+<li><b>Per HDL line.</b> HDL objects take the roll-up of the lines they span; the table lists the lines by power, then by activity. Click a row to select that line. FPGA power per line is a
+model (VPR reports power per block type, so Bifrost spreads the dynamic non-clock power over nets by activity times fanout plus one); silicon power per line is the sum over the instances
+that come from the line (exact). Cells added by the flow (tap cells, clock buffers) have no line.</li>
+<li><b>Compare any two selections.</b> In <b>Graph analytics</b>, <i>Compare any two selections</i> signs two selections of one plane and gives GDD agreement and the cosine of log(1 + orbit totals), for the undirected and the directed graphlets. A selection can be the current selection (HDL lines, objects, paths), a snapshot you saved with the button, a group, or a cluster. It runs in the browser; the metric code is Odin III's, ported to JavaScript and pinned to Odin III by tests. The panel shows how many objects each selection has, how many are on the chosen plane, how many have no graphlet data (counted, not signed) and how many are on other planes. Members are signed with their counts on the whole plane graph, so a cluster here can differ a little from the cluster signatures above, which count each cluster on its own subgraph.</li>
+<li><b>Limits.</b> Glitch power is not counted. Activity is that of one short testbench. Clock power on silicon is the clock-tree cells only, so it is a lower bound. The FPGA planes have
+no per-net or per-cell power, only the per-line model; the silicon planes have power per instance.</li>
+</ul>
+<h2 id="update6">What's new (update 6): graph analytics (graphlet signatures and clusterings)</h2>
+<p>A new left-hand section, <b>Graph analytics</b>, treats the netlist of each plane as a graph and asks what its structure looks like. The counting is done by
+Odin III (its graphlet counter); Heimdall only draws it. The panel appears on pages whose bundle has analytics.</p>
+<ul>
+<li><b>Graphlets and orbits.</b> A graphlet is a small connected piece of a graph (2 to 5 nodes undirected; 2 to 4 nodes directed). A node sits in some position
+(orbit) of each piece it belongs to. The vector of how many times a node sits at each orbit is its <i>graphlet degree vector</i> (GDV). Two sets: undirected (73 orbits,
+Przulj 2007) and directed (129 orbits, in the style of Sarajlic et al. 2016; the numbers are Odin III's own). Wires with 16 or more sinks (clocks, resets) are left
+out before counting, as Odin III's <code>--exclude-global</code> does.</li>
+<li><b>Orbit heat.</b> Pick the mode and one orbit: every plane that has a graph is coloured by log(1 + count) of that orbit. Planes: lut, placed and clb (from the
+LUT netlist), the write_graph planes (ddg, cfg, stg) and, on silicon pages, stdcell and die (from the routed DEF nets, driver from the LEF pin direction).
+The <code>cell</code> plane is not analysed (the bundle holds no cell edges).</li>
+<li><b>Clustering.</b> k-means (k = 2, 4, 8, 16, 32; k-means++ start; the silhouette of every k is shown and the best is the default) and affinity propagation
+(similarity = negative squared distance, preference = median, damping 0.9), on three feature sets: undirected GDV, directed GDV (log(1 + count) of the 24 orbit columns of
+largest variance) and x, y position (placement planes). Fixed seed 20261106. Affinity propagation runs on the distinct vectors (at most 200, the most frequent; the rest
+join the nearest exemplar: the panel says when this applies). Cluster colours follow the size rank, red largest.</li>
+<li><b>Clusters as groups.</b> Click a cluster in the list: it becomes an update-4 group, so everything linked to it lights up on every plane and in the HDL pane
+(shared objects are pies). At most 2000 objects of a cluster are used.</li>
+<li><b>Compare signatures.</b> The signature of a set of nodes is its orbit totals plus the graphlet degree distribution, counted on the set's own subgraph. Pick two
+clusters: the panel shows the two Odin III similarities, the GDD agreement (Przulj) and the cosine of log(1 + orbit totals). Only the clusters of the default
+clusterings are signed (the largest 24 of each algorithm); an arbitrary selection is not.</li>
+<li><b>Graphlet types.</b> A table of every graphlet type with its count in the plane's graph (from Odin III's orbit totals), rare types first.
+The instance view (pick a type, see all its instances in a map colouring) is built in the viewer but needs a list of instances from an Odin III option that is not
+released yet; until then the table says so.</li>
+<li><b>Files.</b> <code>analytics/</code> in the bundle: <code>index.json</code>, one data file per plane and <code>partition.*.tsv</code> files (object id, cluster id) that
+Mimir's partition table can import.</li>
+</ul>
+
+<h2 id="update5">What's new (update 5): ASIC planes (the silicon flow)</h2>
+<p>Heimdall now also shows the ASIC target: Odin III to OpenROAD to GDS. Seven OpenCores designs have a <code>silicon-</code> page beside the FPGA pages
+(the index has a <b>target</b> column). Provenance runs down to silicon: click an HDL line and the standard cells made from it light up on the die.</p>
+<ul>
+<li><b>Planes.</b> <code>hdl</code>, then <code>stdcell</code> (one object per mapped sky130 cell; the type is the library cell name; metrics area, drive, pins),
+<code>die</code> (every placed instance with its real position in micrometres: <code>x_um</code>, <code>y_um</code>, orientation, row) and <code>route</code> (one object per
+routed net: wire length, vias, layers, half-perimeter wire length). Links: <code>hdl</code> to <code>stdcell</code> (<code>cone</code>, medium), <code>stdcell</code> to
+<code>die</code> (<code>name</code>, exact), <code>die</code> to <code>route</code> (<code>pin</code>).</li>
+<li><b>The die is drawn in um.</b> Orange lines are the die and the core outline, grey lines the cell rows; y runs up the screen, as in a layout viewer.
+Hover or click a die object: its metrics show <code>x_um</code>, <code>y_um</code>, <code>row</code>. Click a die cell or a net to see its routed wires, drawn per metal
+layer on the die plane. Tap cells (the regular grid), clock-tree buffers (<code>cts_buffer</code>) and repair buffers are in the plane and are labelled by their
+<code>origin</code> (<code>physical:tap</code>, ...); they link to no HDL.</li>
+<li><b>Join confidence.</b> The <code>recover</code> step takes the cells extracted from the GDS back to the placed cells by cell type and location (no names).
+The die metric <code>recover_conf</code> is that join's confidence: 3 = high, -1 = not joined. The chain from the die back to a statement is as weak as its weakest
+link: <code>name</code> exact, <code>cone</code> medium.</li>
+<li><b>Anchors.</b> <code>placement</code> (the final place) and <code>global</code> (after global placement) are in um; the rainbow lines, bit squares and groups of update 4
+work on these planes unchanged. The metrics list offers only the metrics of the planes the bundle has.</li>
+<li><b>Not shown.</b> Fill cells (their count is in the manifest), an <code>ir</code> or <code>cell</code> plane (the silicon provenance links gates to HDL statements directly),
+and buses (the die cells have no bus names).</li>
+</ul>
+<p><b>Placement in the silicon flow.</b> The flow (<code>tools/silicon/openroad_flow.tcl</code>, OpenROAD, no Yosys,
+<code>sky130_fd_sc_hd</code>) places the cells in these steps. (1) <code>initialize_floorplan</code> sizes a square core so the cells fill 25 percent of it
+(utilisation 25, 6 um around the core); a design of one cell or a core below 16 um gets a fixed 30 um core, and the die grows when the pins need a longer edge or
+an edge falls within 0.17 um of a routing track. (2) <code>tapcell</code> puts a well-tap cell every 14 um on every row (fixed, never moved); <code>pdngen</code>
+builds the power grid. (3) <code>global_placement -density 0.5</code>, run twice around <code>place_pins</code> (first with <code>-skip_io</code>, then with the pins):
+this is OpenROAD's RePlAce, an analytic placer that minimises wirelength under an electrostatic density model (Nesterov-accelerated); cells may overlap and sit off
+the row grid afterwards. (4) <code>repair_design</code> resizes cells and inserts repair buffers. (5) <code>detailed_placement</code> (OpenDP) legalises the cells into
+rows and sites without overlap; <code>clock_tree_synthesis</code> adds clock buffers, <code>repair_timing -hold</code> adds hold buffers, each followed by another
+<code>detailed_placement</code>. (6) <code>global_route</code> (FastRoute) and <code>detailed_route</code> (TritonRoute), then fill cells.</p>
+<p>The <code>die</code> plane shows the <b>final legal placement</b>, read from the DEF written at the end (after clock tree, repair and routing; fill cells are left
+out, tap, clock and buffer cells are kept and labelled by their origin). The anchor <code>global</code> shows the same cells where global placement left them
+(from the flow's <code>s04_global_place.csv</code>; cells inserted later sit at their final place), and the metric <code>legal_shift_um</code> is the
+distance each cell moved to be legalised.</p>
+<div class="try"><b>Try this.</b> Open silicon-mmuart, drag over lines 187 to 190 in the pane, and press the focus button of the die plane. See the
+<a href="guide.html#asic">guide example 12</a>.</div>
+
+<h2 id="update4">What's new (update 4): rainbow lines, bit squares, reverse groups</h2>
+<ul>
+<li><b>Rainbow lines.</b> Select two or more HDL lines (drag in the pane). Line 1 is red, the last line violet, the others spread evenly
+between. Every object linked to a line, on every plane, takes that line's colour; an object reached from several lines is a pie of their
+colours. Flip-flops in the selection are white. Each selected line is painted in its colour in the pane. One line gives red. (One line
+inside a <code>case</code> or <code>if</code> chain still shows the case tiers A, B, C.)</li>
+<li><b>Bit squares.</b> Tick <i>bit squares on the selection</i> (left panel, "Bits"). Each selected object that has a bus bit gets a small
+square: red is the least significant bit, violet the most significant bit of its bus. An object that holds the whole bus (a word cell, a
+signal) gets a square striped from the most significant bit to the least. Objects whose bus was only inferred from the logic they feed have
+no known bit and get no square. The body colour says which line or group; the square says which bit.</li>
+<li><b>Reverse groups.</b> Shift-click an object in the 3D view: it starts a group in the next colour of red, orange, yellow, green, cyan, blue,
+indigo, violet (then the colours repeat). Shift+Alt-click adds an object to the last group. Everything linked to a group, on every plane,
+and its HDL lines take the group's colour. A line shared by several groups shows one colour bar per group beside its number; a shared
+object is a pie. <kbd>Esc</kbd> or "clear selection" resets. (Shift + drag still brushes.)</li>
+<li><b>Bit order fixed.</b> On the LUT and placed planes the bit index of a bus is now always counted from the least significant bit,
+also for buses declared <code>[0:7]</code> or <code>[11:4]</code>.</li>
+</ul>
+<div class="try"><b>Try this.</b> Open ch_intrinsics, drag over lines 200 to 202 in the pane (red, green, violet), press the focus button of the lut plane
+in the right panel, then tick the bits box and click a bus in the bus legend (Colour menu, "bus"). See also the
+<a href="guide.html#rainbow">guide example 11</a>.</div>
+
+<h2 id="planes">1. What you are looking at: the planes</h2>
+<p>One benchmark is drawn as a stack of horizontal planes. Top to bottom: <code>stg</code>, <code>cfg</code>, <code>ddg</code>,
+<code>hdl</code>, <code>cell</code>, <code>lut</code>, <code>clb</code>, <code>placed</code>. The bottom plane is the real FPGA grid. A
+plane that the bundle does not contain is not shown; the status line at the bottom of the left panel lists the missing ones.
+The three graph planes are off at first (keys <kbd>s</kbd>, <kbd>c</kbd>, <kbd>d</kbd>, or the checkboxes under "Graph planes").</p>
+<table>
+<tr><th>Plane</th><th>Objects</th><th>Made by</th></tr>
+<tr><td><code>stg</code></td><td>one node per FSM state (label = state code), edges are transitions labelled with their condition</td><td>Odin III <code>write_graph stg</code>, just after <code>proc</code></td></tr>
+<tr><td><code>cfg</code></td><td>per process: entry, switch, case, join, exit nodes</td><td>Odin III <code>write_graph cfg</code>, just before <code>proc</code></td></tr>
+<tr><td><code>ddg</code></td><td>signals (a bus is one node) and temporary nets; edges are data, control, or across a flip-flop (dashed)</td><td>Odin III <code>write_graph ddg</code>, just after <code>proc</code></td></tr>
+<tr><td><code>hdl</code></td><td>HDL constructs (module, block, statement) and every declared reg, wire and port (kind <code>signal</code>)</td><td>Odin III step file <code>read</code> (the parse, with provenance)</td></tr>
+<tr><td><code>cell</code></td><td>word-level cells: <code>$mux</code>, <code>$pmux</code>, <code>$eq</code>, <code>$dff</code>, with their HDL spans</td><td>Odin III netlist dump right after <code>proc</code></td></tr>
+<tr><td><code>lut</code></td><td>nets, LUTs, flip-flops, hard blocks of the mapped netlist</td><td>Odin III step file <code>map</code> (the BLIF Odin III writes)</td></tr>
+<tr><td><code>clb</code></td><td>VPR top-level blocks: logic clusters, IO pads, memories</td><td>VPR packing (the <code>.net</code> file)</td></tr>
+<tr><td><code>placed</code></td><td>one object per atom, on the real grid tile of its cluster</td><td>VPR placement (the <code>.place</code> file) with Odin III step file <code>place</code></td></tr>
+<tr><td><code>stdcell</code></td><td>(ASIC) one object per mapped standard cell, type = library cell</td><td>Odin III step file <code>map</code> (<code>abc --gates</code>, <code>dfflibmap</code>)</td></tr>
+<tr><td><code>die</code></td><td>(ASIC) one object per placed instance at its position in um</td><td>OpenROAD DEF (<code>route.def</code>) with step file <code>place</code>; join confidence from <code>recover</code></td></tr>
+<tr><td><code>route</code></td><td>(ASIC) one object per routed net</td><td>OpenROAD DEF (the NETS section)</td></tr>
+</table>
+<figure><img src="images/o3viz-ch_intrinsics.png" alt="o3viz on VTR ch_intrinsics"><figcaption>The stack for the VTR benchmark ch_intrinsics.</figcaption></figure>
+<p>Planes that Odin III does not write yet (<code>ir</code>, <code>gates</code>, <code>ble</code>, <code>routed</code>) are not shown.</p>
+<div class="try"><b>Try this.</b> Press <kbd>0</kbd> to see the whole stack, then <kbd>1</kbd> to <kbd>5</kbd> to move the view to each plane in turn.</div>
+
+<h2 id="links">2. Provenance links between planes, and what a column is</h2>
+<p>Each object records where it came from. The bundle has a table of links between objects of different planes (for example an HDL
+construct to the cells made from it, a cell to the LUTs derived from it, a LUT to its cluster and its placed atom). Each link says
+how it was found (for example <code>cone</code>, <code>name</code>, <code>structural_match</code>) and how sure that is.</p>
+<p>A <b>column</b> is everything connected to one object, through all the planes: the object, the objects it links to above
+and below, and their HDL lines. Clicking an object (or an HDL line) highlights its column in 3D and dims the rest. The right
+panel gives one line per plane with the count of linked objects and a focus button. Click empty space to clear.</p>
+<div class="try"><b>Try this.</b> Click a LUT. Its HDL lines light up in the left pane and the right panel lists, per plane, how many objects
+belong to its column. Press the focus button of <code>placed</code> to see where it sits on the grid.</div>
+
+<h2 id="hdl">3. The HDL pane and selecting lines</h2>
+<p>The pane at the left shows the whole source file with line numbers; several files get tabs. Drag the divider to resize it.</p>
+<ul>
+<li>Click a line, or drag over lines, or shift-click to extend a range.</li>
+<li>The selected constructs are the innermost ones whose span covers the lines. Tick "include enclosing constructs" to take all of
+them.</li>
+<li>From those constructs the selection follows the links to every object below (cell, LUT, cluster, placed atom). These are
+highlighted; the rest is dimmed. The right panel counts the objects per plane.</li>
+<li>The reverse also works: clicking an object in 3D highlights its HDL lines in the pane and scrolls to them.</li>
+<li>Clicking the declaration line of a reg selects its flip-flops on every plane; of a wire, its driving logic.</li>
+<li>Two or more selected lines are coloured as a rainbow, first line red to last line violet (see "What's new"): the objects each line
+reaches, and the line itself, carry its colour. Up to 300 lines are coloured; a longer drag selects without colours.</li>
+</ul>
+<figure><img src="images/o3viz-line.png" alt="an HDL line selected"><figcaption>One HDL line selected: its column is lit on every plane.</figcaption></figure>
+<div class="try"><b>Try this.</b> Click a line inside an <code>always</code> block, then tick "include enclosing constructs" and watch the counts grow.</div>
+
+<h2 id="tiers">4. Case tiers A, B, C and the graded mix</h2>
+<p>Click a line inside a <code>case</code> or an if/else chain (a construct with two or more branches) and the viewer sorts the
+objects into three tiers:</p>
+<table>
+<tr><td><b>A</b> orange</td><td>own: the clicked item</td></tr>
+<tr><td><b>B</b> teal</td><td>shared: the case itself, and logic that serves the item together with others (select, mux)</td></tr>
+<tr><td><b>C</b> violet</td><td>context: the other items</td></tr>
+</table>
+<p>Everything else fades. The source pane shows the clicked item with an orange bar, the case header teal, the other items in a light
+tint. The right panel counts A, B and C per plane.</p>
+<p>On the cell plane the tiers are exact. Below it (lut, clb, placed) a LUT is coloured by the <b>graded mix</b>: its share of A, B
+and C among the cell-plane objects it was mapped from (orange intensity = A share). A LUT with no cell link keeps its whole tier,
+and a cluster or placed atom takes the mean over its LUTs. Hover shows the shares.</p>
+<figure><img src="images/o3viz-m5-tiers.png" alt="case tiers on the cell plane"><figcaption>Tiers A, B, C on the cell plane.</figcaption></figure>
+<figure><img src="images/o3viz-m6-graded-fsm.png" alt="graded tiers"><figcaption>The graded mix on the lower planes.</figcaption></figure>
+<div class="try"><b>Try this.</b> Load a design with a <code>case</code>, click one item, press <kbd>2</kbd> (the cell plane, second from the top of the non-graph planes) to see tiers A, B, C.</div>
+
+<h2 id="buses">5. Buses and flip-flops</h2>
+<p><b>Buses.</b> Set Colour to "bus (hue per bus, shade per bit)". Each bus gets a hue and each bit a shade. The legend lists the buses
+with a filter box and a count; click one to select it on every plane and mark its declaration line. A bus name comes from the
+object's own net, or, for unnamed logic, from the one bus it feeds. Anything else is grey and counted as "no bus". The option appears
+only when the bundle has bus names.</p>
+<p><b>Bit squares.</b> The "Bits" box in the left panel draws, on every selected object that has a bus bit, a small square coloured by the
+bit: red = least significant bit, violet = most significant bit (counted over the declared width of the bus). It works with any selection:
+HDL lines, an object, a bus from the legend, a brush, reverse groups. The bit is the offset from the least significant bit, so a bus
+declared <code>[0:7]</code> has its violet bit at index 0, as Verilog defines it.</p>
+<figure><img src="images/o3viz-m5-bus.png" alt="colour = bus"><figcaption>Colour = bus, with <code>return_val</code> selected.</figcaption></figure>
+<p><b>Flip-flops</b> are small pink cubes on every plane: beside the LUT that drives their D input on lut and placed, around their
+cluster on clb (a cluster shows one cube per flip-flop inside). The Flip-flops menu has three modes: "cubes only", "highlight FFs",
+and "FFs only (others dimmed)". The metric <code>is_ff</code> marks them in the data.</p>
+<figure><img src="images/o3viz-m5-ff.png" alt="flip-flops highlighted"><figcaption>FFs highlighted.</figcaption></figure>
+<div class="try"><b>Try this.</b> Choose "FFs only", then click a pink cube: its column and the HDL lines of the register are highlighted.</div>
+
+<h2 id="channels">6. Colour, size, height, fade; metrics; joins</h2>
+<p>Four channels in the left panel each take any metric: <b>Colour</b>, <b>Size</b>, <b>Height</b> (above the plane) and <b>Fade</b>
+(blend to the background). The shape follows the object kind. Grey means not measured, and a value is never guessed. The colour
+legend gives the range and, per plane, how many objects have a value. Slack uses a diverging scale (red is negative). The button
+"colour = logic depth (all planes)" sets colour to <code>logic_level</code> on every plane.</p>
+<figure><img src="images/o3viz-depth.png" alt="colour = logic depth"><figcaption>Colour = logic depth.</figcaption></figure>
+<h3>Metrics: where each is measured</h3>
+<table>
+<tr><th>Metric</th><th>Source</th></tr>
+<tr><td><code>fanin</code>, <code>fanout</code>, <code>logic_level</code></td><td>the BLIF from Odin III. <code>logic_level</code> is LUT depth from inputs and register or block outputs; on clb it is the max over the atoms inside, on hdl the max over the LUTs linked below</td></tr>
+<tr><td><code>stage</code>, <code>seq_level</code>, <code>is_latched</code>, <code>is_po</code>, <code>fanout_comb</code></td><td>computed from the BLIF netlist (see section 7)</td></tr>
+<tr><td><code>slack_worst</code>, <code>paths_through</code></td><td>VPR's worst 100 setup paths (the report); objects on no reported path stay grey</td></tr>
+<tr><td><code>atoms</code>, <code>luts_inside</code>, <code>ffs_inside</code>, <code>x</code>, <code>y</code></td><td>VPR's <code>.net</code> and <code>.place</code></td></tr>
+<tr><td><code>cc0</code>, <code>cc1</code>, <code>co</code></td><td>Odin III's <code>scoap</code> pass (section 8)</td></tr>
+<tr><td><code>graph_in</code>, <code>graph_out</code>, <code>is_reset</code>, <code>n_actions</code>, <code>width</code></td><td>the graph planes (stg, cfg, ddg)</td></tr>
+<tr><td><code>depth</code>, <code>children</code>, <code>span_lines</code>, <code>luts_below</code>, <code>hdl_links</code>, <code>weakest_confidence</code></td><td>Odin III step files and the links table</td></tr>
+</table>
+<h3>Joins: build new metrics</h3>
+<ul>
+<li><b>Expression.</b> Give a name and a formula over metric names, for example <code>fanout * (1 - slack_worst)</code>. Operators
+<code>+ - * / % ^</code>, comparisons, and <code>abs sqrt log log2 exp floor ceil round min max pow clamp if</code>. It has its own parser
+(no <code>eval</code>). A missing value gives a missing result. Choose the sequential or the diverging scale.</li>
+<li><b>Across planes.</b> <code>min</code>, <code>max</code>, <code>mean</code>, <code>sum</code> or <code>count</code> of a metric over the
+objects linked below or above. Direct links only, one hop.</li>
+</ul>
+<p>New metrics show up in every dropdown.</p>
+<div class="try"><b>Try this.</b> In "Join: across planes" pick <code>slack_worst</code>, "from objects linked below", <code>min</code>, then colour the
+<code>hdl</code> plane by the new metric: the constructs with the worst LUT light up.</div>
+
+<h2 id="anchors">7. Anchors, layouts, and the Hutton and Kundarewich panel</h2>
+<p>The <b>Anchor</b> menu decides where objects sit on each plane. Switching does not reload the bundle.</p>
+<table>
+<tr><th>Anchor</th><th>Layout</th></tr>
+<tr><td><code>placement</code></td><td>the real grid at the bottom; upper planes at the centroid of what they link to</td></tr>
+<tr><td><code>global</code></td><td>(ASIC) as <code>placement</code>, but the die cells where global placement left them, before legalisation</td></tr>
+<tr><td><code>ast</code></td><td>the HDL construct tree (root on top, one leaf per column); a LUT at its deepest construct, a cluster at the mean of its LUTs</td></tr>
+<tr><td><code>pipeline</code></td><td>x = register stage, one block per stage, atoms ordered by logic level</td></tr>
+<tr><td><code>level</code></td><td>x = logic level, one block per level, atoms ordered by worst slack (worst first)</td></tr>
+<tr><td><code>hutton</code></td><td>x = delay level, objects stacked per level; flip-flops at level 0 beside the primary inputs, joined to their latched node by the DFF edge</td></tr>
+<tr><td><code>hutton_seq</code></td><td>as <code>hutton</code>, one strip per sequential level</td></tr>
+<tr><td><code>kundarewich-&lt;source&gt;</code></td><td>one strip per cluster of the chosen cluster source</td></tr>
+</table>
+<p>The anchors <code>hutton</code>, <code>hutton_seq</code> and <code>kundarewich-*</code> appear only when the bundle has them. An object that has
+no position of its own is moved to a strip below the plane and counted in the manifest; a guess is never drawn as a measurement.</p>
+<figure><img src="images/o3viz-anchors.png" alt="anchors"><figcaption>An anchor other than placement.</figcaption></figure>
+<h3>The Hutton and Kundarewich panel</h3>
+<p>The right panel section "Circuit: Hutton and Kundarewich" describes the lut-plane circuit. Definitions follow P. D. Kundarewich,
+"Synthetic Circuit Generation Using Clustering and Iteration", MASc thesis, University of Toronto, 2002, which describes M. Hutton,
+J. Rose, J. Grossman and D. Corneil, "Characterization and parameterized generation of synthetic combinational circuits", IEEE TCAD
+17(10):985-996, 1998, and M. Hutton, J. Rose and D. Corneil, "Generation of synthetic sequential benchmark circuits", FPGA 1997. The
+viewer is descriptive only; it tests no hypothesis.</p>
+<ul>
+<li><b>Shapes</b> per delay level: node shape (objects), input shape (LUT input pins), output shape (objects that drive something),
+PO shape (objects that drive a primary output). Choose "whole circuit" or "selection" (an HDL line's logic gets its own shape).</li>
+<li><b>Fanout distribution</b>: objects per number of LUTs driven.</li>
+<li><b>Edge length</b> of an edge into a LUT: level(sink) minus level(source). An edge into a flip-flop has length 0 by definition. The
+Edges menu "circuit edges by length" colours the lut-plane edges by length (pink = 0).</li>
+<li><b>Cluster source</b> menu: <code>hdl-module</code>, <code>hdl-block</code>, <code>hdl-item</code>, <code>vpr</code>, <code>mincut</code>
+(a seeded Fiduccia-Mattheyses bipartition; Kundarewich used hMETIS, this is not hMETIS).</li>
+<li><b>Comb and Latched matrices</b> (Kundarewich 3.3.2): Comb[i][j] counts edges from cluster i that drive combinational nodes in cluster j;
+Latched[i][j] those that drive flip-flops in cluster j. Heat maps use a log scale; the diagonal is dim. Click a cell: its edges are drawn
+in yellow and their endpoints and HDL lines are selected. The panel also gives the share of edges that cross clusters.</li>
+<li><b>Compare with</b>: tick it and pick a second source to see both side by side with their normalised mutual information (NMI),
+which says how close the HDL hierarchy is to the connectivity hierarchy.</li>
+<li>Colour menu entries "cluster" and "role" (flip-flop, latched node, primary output) appear with this data.</li>
+</ul>
+<figure><img src="images/o3viz-m6-hutton.png" alt="Hutton layout"><figcaption>The <code>hutton</code> anchor, colour = role.</figcaption></figure>
+<figure><img src="images/o3viz-m6-kundarewich.png" alt="Kundarewich view"><figcaption>HDL blocks as clusters, Comb and Latched matrices, compared with min-cut.</figcaption></figure>
+<div class="try"><b>Try this.</b> Choose the anchor <code>kundarewich-hdl-block</code> (cluster source <code>hdl-block</code>); with a Kundarewich anchor active, changing the cluster source also switches the anchor. Click a hot cell in the Comb matrix and read
+the HDL lines of the edges between those two clusters. Then tick "compare with" and choose <code>mincut</code>.</div>
+
+<h2 id="paths">8. Paths and SCOAP</h2>
+<p>The Paths section (right panel) draws a combinational path as a polyline through the objects it passes on the lut and placed planes,
+and highlights the HDL lines it comes from. The source is always labelled.</p>
+<ul>
+<li><b>VPR setup report</b>: the reported setup paths, worst slack first. Click one to draw it. Only the data-arrival part is used.</li>
+<li><b>Netlist cone</b>: from the selected objects, the fan-in, fan-out or both cones in the LUT netlist, with a depth limit. The cone
+stops at flip-flops, I/O and hard blocks. It follows the selection.</li>
+</ul>
+<figure><img src="images/o3viz-paths.png" alt="VPR path"><figcaption>A reported VPR path.</figcaption></figure>
+<figure><img src="images/o3viz-cone.png" alt="netlist cone"><figcaption>A fan-in cone.</figcaption></figure>
+<p><b>SCOAP</b> testability numbers come from Odin III's <code>scoap</code> pass: <code>cc0</code> and <code>cc1</code> (controllability to 0 and to 1)
+and <code>co</code> (observability). They exist on lut, placed and ddg where the pass named the net; unreachable means no value. The left
+panel "colour = SCOAP with joins" takes CC0, CC1 or CO and min, max or mean, and colours every plane: its own value where measured, else
+the min, max or mean over linked objects that have one. Nets named after a port or a register often have no value; the grey is honest.</p>
+<figure><img src="images/o3viz-m7-scoap.png" alt="colour = SCOAP"><figcaption>Colour = max CC0 on every plane.</figcaption></figure>
+<div class="try"><b>Try this.</b> Select a LUT, set Paths to "netlist cone of the selection", choose fan-in, depth 6. Then set "colour = SCOAP" with CO and max.</div>
+
+<h2 id="discovery">9. Discovery, 2D view, morph, brush, grouping</h2>
+<ul>
+<li><b>Discovery</b> (right panel): pick a plane and Spearman correlation or mutual information (8 equal-width bins, in bits). It shows the
+matrix of the metrics with 10 or more values. Click a cell: colour = row metric, size = column metric. Pairs with a missing value on either
+side are left out.</li>
+<li><b>2D view</b> (View menu): one plane seen from above, rotation off. The entries are "3D stack" and "2D: &lt;plane&gt;".</li>
+<li><b>Morph</b>: choose two adjacent planes and drag the slider; the lower plane rises to the upper one and its objects slide to the centroid of
+the upper objects they link to.</li>
+<li><b>Brush</b>: hold <kbd>Shift</kbd> and drag a rectangle on the 3D view. The objects of the plane chosen in "Shift + drag brushes objects of"
+are selected and their column is highlighted.</li>
+<li><b>Grouping</b>: by HDL module or by VPR cluster, one blob per group on lut and placed (colour = mean of the colour metric). Click a blob to
+expand it; selecting an object expands its group.</li>
+<li><b>Edges</b>: "k-hop of selection" draws netlist edges within k hops of the selected lut objects; "between groups" draws one line per pair of
+groups (needs grouping), brighter for more edges.</li>
+</ul>
+<figure><img src="images/o3viz-discovery.png" alt="discovery matrix"><figcaption>A Discovery matrix.</figcaption></figure>
+<div class="try"><b>Try this.</b> Compute a Spearman matrix on <code>lut</code>, click the cell of <code>fanout</code> against <code>slack_worst</code>, then
+look for fat, red objects. Or Shift-drag a box on the 3D view and read the counts in the right panel.</div>
+
+<h2 id="camera">10. Planes and camera</h2>
+<ul>
+<li>Drag to rotate, right-drag to pan. "auto-rotate", "plane gap" and "reset camera" are in the left panel.</li>
+<li><b>Focus</b>: keys <kbd>1</kbd> to <kbd>9</kbd> move the orbit target to a plane centre (numbered over the planes that are not graph
+planes, top first); <kbd>0</kbd> shows the whole stack. The "focus" buttons in the Planes list do the same.</li>
+<li><b>Zoom to cursor</b>: the wheel zooms towards the point under the cursor on the focused plane, or on the nearest plane under the cursor
+when none is focused.</li>
+<li><b>Show / solo / opacity</b>: each plane in the Planes list has a show checkbox, an opacity slider and a "solo" button that hides every
+other plane (a second click restores them).</li>
+<li>Hover an object for a tooltip; click it for its fields and metrics in the right panel. "clear selection" in the left panel clears.</li>
+</ul>
+<div class="try"><b>Try this.</b> Press <kbd>3</kbd> to focus the LUT plane (the order is hdl, cell, lut, clb, placed), then scroll over one corner to zoom into it.</div>
+
+<h2 id="panels">11. Collapsible panels</h2>
+<p>Each side panel has a small button at its top (<code>&laquo;</code> or <code>&raquo;</code>) that turns it into a thin strip; the 3D view takes the
+space. Keys: <kbd>[</kbd> left panel, <kbd>h</kbd> HDL pane, <kbd>]</kbd> right panel. The state is kept in the browser (<code>localStorage</code>).</p>
+<figure><img src="images/o3viz-m6-collapsed.png" alt="panels collapsed"><figcaption>All panels collapsed.</figcaption></figure>
+<div class="try"><b>Try this.</b> Press <kbd>h</kbd>, <kbd>[</kbd> and <kbd>]</kbd> for a full-window 3D view; press them again to bring the panels back.</div>
+
+<h2 id="keys">12. Keyboard shortcuts</h2>
+<p>Keys work when the focus is not in a text box or a menu, and without Ctrl, Alt or Meta.</p>
+<table id="keytable">
+<tr><th>Key</th><th>Action</th></tr>
+<tr data-key="0"><td><kbd>0</kbd></td><td>whole stack (no focused plane)</td></tr>
+<tr data-key="1-9"><td><kbd>1</kbd> to <kbd>9</kbd></td><td>focus the Nth plane, counted over the non-graph planes, top first</td></tr>
+<tr data-key="s"><td><kbd>s</kbd></td><td>show or hide the STG plane (focuses it when shown)</td></tr>
+<tr data-key="c"><td><kbd>c</kbd></td><td>show or hide the CFG plane (focuses it when shown)</td></tr>
+<tr data-key="d"><td><kbd>d</kbd></td><td>show or hide the DDG plane (focuses it when shown)</td></tr>
+<tr data-key="["><td><kbd>[</kbd></td><td>collapse or restore the left panel</td></tr>
+<tr data-key="h"><td><kbd>h</kbd></td><td>collapse or restore the HDL pane</td></tr>
+<tr data-key="]"><td><kbd>]</kbd></td><td>collapse or restore the right panel</td></tr>
+<tr data-key="Escape"><td><kbd>Esc</kbd></td><td>clear the selection, the rainbow and the reverse groups</td></tr>
+<tr data-key="?"><td><kbd>?</kbd></td><td>open this help in a new tab</td></tr>
+</table>
+<p>Mouse: click selects; drag rotates; right-drag pans; wheel zooms to the cursor; touch: one finger rotates, two fingers pan, pinch zooms, tap selects; <kbd>Shift</kbd> + drag brushes; <kbd>Shift</kbd>-click an object starts a reverse group, <kbd>Shift</kbd>+<kbd>Alt</kbd>-click adds to the last group; on the HDL pane, drag or
+shift-click selects a range.</p>
+
+<h2 id="limits">13. Known limits per plane</h2>
+<ul>
+<li><b>stg</b>: Odin III does not attribute a state or a transition to one case item, so every state links to the same next-state logic.
+Edges between graph planes (an STG state to the CFG case that computes its transitions) are not drawn. A state has no HDL span of its own.</li>
+<li><b>cfg</b>: a <code>join</code> node has no HDL span. Links go by HDL span, not by the provenance record number in the graph file.</li>
+<li><b>ddg</b>: big. A real DDG can have thousands of nodes (666 nodes and 12189 edges for the <code>memset</code> process of ch_intrinsics;
+5046 nodes and 124406 edges for sha), so only the edges within k hops of the selection are drawn unless you tick "DDG: all edges". Layers wider
+than 40 nodes wrap into rows, and temporaries have no HDL span or SCOAP value.</li>
+<li><b>hdl, cell</b>: when Odin III's fsm pass recodes a state variable (ch_intrinsics: <code>cur_state</code> to one-hot), the case items are merged
+after mapping. On the cell plane tiers A, B, C are exact, but on lut, clb and placed every LUT carries the spans of all items and any item shows
+mostly tier B.</li>
+<li><b>lut, placed</b>: Odin III's abc pass records the cut cone of each LUT only when the run's parent edges fit a budget. On a big design (VTR sha)
+the budget is exceeded, all LUTs share one record, and per-LUT cell lineage (and so the graded mix) is coarse. SCOAP has no value for LUTs named after
+an output port or a register.</li>
+<li><b>clb, placed</b>: objects that mapping removed (nets) have no placed atom; they are put at the mean of their placed neighbours or the grid
+centre and counted as "unanchored" in the manifest.</li>
+<li><b>Buses</b>: if the net-number offset cannot be verified, the lut and placed planes get no bus names and the manifest says so.</li>
+<li>A value that was not measured is grey, never a default.</li>
+</ul>
+<h2 id="links-url">14. Deep links: URL parameters</h2>
+<p>The viewer reads its URL query once the bundle has loaded and sets its state from it, so a link can open an exact view. The
+<a href="guide.html">guide</a> uses them for its "try it" links. Names that the bundle does not have are ignored, and so is any
+malformed value. Example:</p>
+<p><code>vtr-verilog-sha/?sel=line:12&amp;plane=lut&amp;colour=logic_level&amp;anchor=hutton</code></p>
+<table>
+<tr><th>Parameter</th><th>Value</th><th>Effect</th></tr>
+<tr><td><code>sel</code></td><td><code>line:12</code>, <code>line:12-15</code>, <code>line:FILE:12-15</code></td><td>select HDL lines (the first file when none is named); the pane scrolls to them</td></tr>
+<tr><td></td><td><code>obj:ID</code></td><td>select one object by its id (as shown in the right panel)</td></tr>
+<tr><td></td><td><code>bus:NAME</code></td><td>select a bus on every plane</td></tr>
+<tr><td></td><td><code>path:N</code></td><td>draw VPR setup path number N of the report (1 is the worst)</td></tr>
+<tr><td><code>enclosing</code></td><td><code>1</code></td><td>tick "include enclosing constructs" for a line selection</td></tr>
+<tr><td><code>plane</code></td><td>plane name</td><td>focus that plane (as the keys 1 to 9)</td></tr>
+<tr><td><code>solo</code></td><td>plane name</td><td>show only that plane</td></tr>
+<tr><td><code>view</code></td><td><code>stack</code> or a plane name</td><td>the 3D stack, or the 2D view of that plane</td></tr>
+<tr><td><code>graphs</code></td><td><code>stg,cfg,ddg</code> (any of them)</td><td>switch those graph planes on</td></tr>
+<tr><td><code>zoom</code></td><td>number up to 20</td><td>move the camera that many times closer to its target (after focus)</td></tr>
+<tr><td><code>colour</code>, <code>size</code>, <code>height</code>, <code>fade</code></td><td>metric name (colour also <code>@bus</code>, <code>@cluster</code>, <code>@role</code>)</td><td>set the channel</td></tr>
+<tr><td><code>scoap</code></td><td><code>cc0</code>, <code>cc1</code> or <code>co</code>, optionally <code>:min</code>, <code>:max</code>, <code>:mean</code></td><td>"colour = SCOAP with joins" (default max)</td></tr>
+<tr><td><code>ff</code></td><td><code>off</code>, <code>highlight</code>, <code>only</code></td><td>the Flip-flops menu</td></tr>
+<tr><td><code>anchor</code></td><td>anchor name</td><td>the Anchor menu (<code>hutton</code>, <code>kundarewich-hdl-block</code>, ...)</td></tr>
+<tr><td><code>csrc</code>, <code>compare</code></td><td>cluster source name</td><td>the Hutton and Kundarewich cluster source, and the "compare with" source</td></tr>
+<tr><td><code>cell</code></td><td><code>comb:I:J</code> or <code>latched:I:J</code></td><td>click that cell of the Comb or Latched matrix of the cluster source</td></tr>
+<tr><td><code>cone</code></td><td><code>in</code>, <code>out</code> or <code>both</code>, optionally <code>:DEPTH</code></td><td>netlist cone of the selection (depth 6 by default)</td></tr>
+<tr><td><code>panels</code></td><td><code>left,hdl,right</code> (any of them)</td><td>collapse those panels (not saved in the browser)</td></tr>
+<tr><td><code>rotate</code></td><td><code>0</code></td><td>no auto-rotation</td></tr>
+<tr><td><code>bits</code></td><td><code>1</code></td><td>tick the "bit squares on the selection" box</td></tr>
+<tr><td><code>grp</code></td><td><code>ID,ID;ID</code></td><td>reverse groups: <code>;</code> separates groups, <code>,</code> the objects of one group (ids as in the right panel)</td></tr>
+</table>
+<p>Selection and view parameters are applied in a fixed order: panels, graphs, anchor, cluster sources, colour channels, selection, cone, view,
+solo, focus, zoom. The case tiers need no parameter: a line selection inside a <code>case</code> item shows them.</p>
+</main>
+</body>
+</html>
