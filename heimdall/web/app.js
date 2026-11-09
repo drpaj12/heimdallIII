@@ -2012,8 +2012,34 @@ function buildAnalyticsUi() {
 
 // ---- switching activity (Bifrost III power data joined to the planes; v0.7) ----
 async function loadActivity() {
-  S.act = { data: await getJson("activity/activity.json"), exact: false };
+  const ent = S.man.activity;
+  const srcs = ent.sources || [{ key: ent.source, label: ent.source_label, file: "activity/activity.json" }];
+  const data = await getJson(srcs[0].file);
+  S.act = { data, exact: false, sources: srcs, key: srcs[0].key, cache: { [srcs[0].key]: data } };
   injectActivity();
+}
+async function switchActivity(key) {
+  const s = S.act.sources.find((x) => x.key === key);
+  if (!S.act.cache[key]) S.act.cache[key] = await getJson(s.file);
+  S.act.data = S.act.cache[key];
+  S.act.key = key;
+  const origin = key === "odin3-vectorless" ? "Odin III activity pass" : "Bifrost III";
+  for (const n of ["act_p1", "act_td"]) meta(n).source = `${origin}, ${S.act.data.source_label}`;
+  injectActivity();
+  buildActUi();
+  refreshAll();
+}
+function actValues(a, p) {
+  const c = a.coverage[p], n = c.net + c.line + c.link + c.none;
+  return n ? `${(100 * (n - c.none) / n).toFixed(0)}% of ${n} have a value` : "empty";
+}
+function actCompare(a) {
+  return (a.compare || []).map((c) => `<div class="sub">Against ${esc(c.other_label)} on the ${c.nets} nets both name: mean absolute difference of P(1) ${c.p1_mae}, of density ${c.density_mae} toggles per cycle.</div>`).join("");
+}
+function actPicker() {
+  const s = S.act.sources;
+  if (s.length < 2) return "";
+  return `<div class="sub"><b>Activity source:</b> <select id="actsrc" style="width:auto">${s.map((x) => `<option value="${esc(x.key)}"${x.key === S.act.key ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select> (the default is a testbench if there is one)</div>`;
 }
 function injectActivity() {
   const d = S.act.data;
@@ -2038,17 +2064,20 @@ function actTotals(a) {
 }
 function actLines(a) {
   const rows = a.lines.slice(0, 30).map((r, k) => `<div class="actl" data-k="${k}" style="cursor:pointer;font-size:11px">${esc(r[0])}:${r[1]} &middot; ${r[2]} nets or cells &middot; P(1) ${r[3] === null ? "-" : r[3].toFixed(3)} &middot; ${r[4] === null ? "-" : r[4].toPrecision(3)} toggles/cycle &middot; ${r[5] === null ? "-" : r[5].toPrecision(3)} uW</div>`);
-  return `<div class="sub">${a.line_power === "model" ? "power per line is a model (see below)" : a.line_power === "not available" ? "power per line: not available for this design (activity per line is shown)" : "power per line is per instance"}; top ${rows.length} lines${a.line_power === "not available" ? "" : " by power, then"} by activity</div>${rows.join("")}`;
+  return `<div class="sub">${a.line_power === "model" ? "power per line is a model (see below)" : a.line_power === "none" ? "no power per line for this source (activity per line is shown)" : a.line_power === "not available" ? "power per line: not available for this design (activity per line is shown)" : "power per line is per instance"}; top ${rows.length} lines${a.line_power === "not available" || a.line_power === "none" ? "" : " by power, then"} by activity</div>${rows.join("")}`;
 }
 function buildActUi() {
   const el = $("actbody"), a = S.act?.data;
   if (!a) {
-    el.innerHTML = '<div class="sub">No switching-activity data for this page. Bifrost III power runs exist for mmuart, verilog_cordic_core and wb_lcd only (their FPGA and silicon pages); nothing is estimated for the others.</div>';
+    el.innerHTML = '<div class="sub">No switching-activity data for this page. Nothing is estimated: a design needs a Bifrost III power run (ACE2 vectorless or a testbench) or an Odin III activity file, and a silicon page needs a gate-level run of its own netlist (only mmuart, verilog_cordic_core and wb_lcd have one).</div>';
     return;
   }
-  const cov = S.order.map((p) => { const c = a.coverage[p]; return `<div style="font-size:11px">${p}: ${c.net} net, ${c.line} line, ${c.link} link, ${c.none} none</div>`; }).join("");
-  el.innerHTML = `<div class="sub"><b>Activity source:</b> ${esc(a.source_label)}. Testbench ${esc(a.testbench)}${a.tb_pass ? " (prints PASS)" : ""}, ${a.cycles} cycles of ${esc(a.clock)}${a.start_state ? `, latches start at ${esc(a.start_state)}` : ""}; activity matched on ${(100 * a.matched_fraction).toFixed(1)}% of the nets.</div>` +
-    `<div class="sub">${esc(Object.values(a.tool).join("; "))}</div>${actTotals(a)}` +
+  const cov = S.order.map((p) => { const c = a.coverage[p]; return `<div style="font-size:11px">${p}: ${c.net} net, ${c.line} line, ${c.link} link, ${c.none} none (${actValues(a, p)})</div>`; }).join("");
+  const tb = a.testbench ? ` Testbench ${esc(a.testbench)}${a.tb_pass ? " (prints PASS)" : ""}, ${a.cycles} cycles of ${esc(a.clock)}${a.start_state ? `, latches start at ${esc(a.start_state)}` : ""}.` : "";
+  const mf = typeof a.matched_fraction === "number" ? ` ${a.source === "odin3-vectorless" ? "Objects of the LUT plane named in the file" : "Activity matched on the nets"}: ${(100 * a.matched_fraction).toFixed(1)}%.` : "";
+  const ps = a.power_source ? `<div class="sub">Power below is Bifrost's, computed from its own source (${esc(a.power_source)}); it is not recomputed from this activity.</div>` : "";
+  el.innerHTML = actPicker() + `<div class="sub"><b>Activity source:</b> ${esc(a.source_label)}.${tb}${mf}</div>` + actCompare(a) +
+    `<div class="sub">${esc(Object.values(a.tool).join("; "))}</div>${ps}${Object.keys(a.totals).length ? actTotals(a) : ""}` +
     `<div class="sub"><button id="actp1">colour: static probability</button> <button id="acttd">colour: transition density</button> <button id="actpw">colour: power</button></div>` +
     `<label class="sub"><input type="checkbox" id="actexact"> exact name matches only (grey elsewhere)</label>` +
     `<h2>Join per plane (objects by basis)</h2>${cov}` +
@@ -2058,6 +2087,7 @@ function buildActUi() {
   for (const k of ["p1", "td", "pw"]) {
     $(`act${k}`).addEventListener("click", () => { S.colour = `act_${k}`; $("colour").value = S.colour; refreshAll(); });
   }
+  if ($("actsrc")) $("actsrc").addEventListener("change", (e) => switchActivity(e.target.value));
   $("actexact").addEventListener("change", (e) => { S.act.exact = e.target.checked; injectActivity(); refreshAll(); });
   el.querySelectorAll(".actl").forEach((tr) => tr.addEventListener("click", () => { const r = a.lines[+tr.dataset.k]; if (r[1] > 0) selectLines(r[0], r[1], r[1]); }));
 }

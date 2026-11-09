@@ -1,4 +1,5 @@
 import csv
+import gzip
 import json
 import tempfile
 import unittest
@@ -65,7 +66,94 @@ def write_data(root: Path) -> Path:
     return root
 
 
+def write_vl(root: Path, with_power: bool = True) -> None:
+    """odin3-activity json: x and y named in the bundle (hash names), plus a net it does not have."""
+    js = {
+        "schema": "odin3-activity",
+        "version": 1,
+        "source": "odin3-vectorless",
+        "iterations": 3,
+        "converged": True,
+        "nets": [
+            {"id": 0, "name": "x", "p1": 0.5, "d": 0.2, "kind": "comb"},
+            {"id": 1, "name": "y", "p1": 0.3, "d": 0.1, "kind": "ff"},
+            {"id": 2, "name": "gone", "p1": 0.9, "d": 0.0, "kind": "comb"},
+        ],
+    }
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "odin3-activity.json").write_text(json.dumps(js), encoding="utf-8")
+    if not with_power:
+        (root / "power.json").unlink(missing_ok=True)
+
+
 class TestActivity(unittest.TestCase):
+    def test_vectorless_only_design(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            b = write_bundle(Path(td) / "b")
+            d = Path(td) / "d"
+            write_vl(d)
+            ds = activity.Dataset(d)
+            self.assertEqual(ds.sources("fpga"), ["odin3-vectorless"])
+            self.assertEqual(ds.sources("asic"), [])
+            out = activity.build(b, ds, "fpga")
+        lut = out["planes"]["lut"]
+        self.assertEqual(lut["basis"][:2], [1, 1])
+        self.assertEqual((lut["p1"][0], lut["td"][1]), (0.5, 0.1))
+        self.assertEqual(lut["basis"][2], 3)  # z: link
+        self.assertEqual(out["source"], "odin3-vectorless")
+        self.assertEqual(out["line_power"], "none")
+        self.assertAlmostEqual(out["matched_fraction"], 2 / 3)
+        hdl = out["planes"]["hdl"]  # line table derived from the named objects
+        self.assertEqual(hdl["basis"], [2, 2, 2])
+        self.assertAlmostEqual(hdl["p1"][1], 0.5)
+        self.assertAlmostEqual(hdl["p1"][2], 0.3)
+        self.assertTrue(all(p is None for p in out["planes"]["hdl"]["pw"]))
+
+    def test_two_sources_default_and_compare(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            b = write_bundle(Path(td) / "b")
+            d = write_data(Path(td) / "d")
+            write_vl(d)
+            ds = activity.Dataset(d)
+            self.assertEqual(ds.sources("fpga"), ["iverilog-gate", "odin3-vectorless"])
+            entry = activity.apply(b, ds, "fpga")
+            files = sorted(f.name for f in (b / "activity").iterdir())
+            vl = json.loads(
+                (b / "activity" / "activity-odin3-vectorless.json").read_text(encoding="utf-8")
+            )
+            main = json.loads((b / "activity" / "activity.json").read_text(encoding="utf-8"))
+        self.assertEqual(files, ["activity-odin3-vectorless.json", "activity.json"])
+        self.assertEqual(
+            [x["key"] for x in entry["sources"]], ["iverilog-gate", "odin3-vectorless"]
+        )
+        self.assertEqual(main["source"], "iverilog-gate")
+        # common nets: x only (0.25/0.5 against 0.5/0.2)
+        cmp = main["compare"][0]
+        self.assertEqual((cmp["nets"], cmp["p1_mae"], cmp["density_mae"]), (1, 0.25, 0.3))
+        self.assertEqual(vl["compare"][0]["other"], "iverilog-gate")
+        self.assertEqual(vl["power_source"], activity.SOURCE_LABEL["iverilog-gate"])
+        self.assertAlmostEqual(vl["totals"]["total_w"], 0.001)  # Bifrost's, not recomputed
+
+    def test_packed_bundle_second_source(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            b = write_bundle(Path(td) / "b")
+            man = json.loads((b / "manifest.json").read_text(encoding="utf-8"))
+            man["parts"] = {}
+            (b / "manifest.json").write_text(json.dumps(man), encoding="utf-8")
+            for n in ("hdl", "lut", "placed"):  # pack the planes and links as the exporter does
+                raw = (b / "planes" / f"{n}.json").read_bytes()
+                (b / "planes" / f"{n}.json.gz.000").write_bytes(gzip.compress(raw))
+                man["parts"][f"planes/{n}.json"] = [f"planes/{n}.json.gz.000"]
+            (b / "links.json.gz.000").write_bytes(gzip.compress((b / "links.json").read_bytes()))
+            man["parts"]["links.json"] = ["links.json.gz.000"]
+            (b / "manifest.json").write_text(json.dumps(man), encoding="utf-8")
+            d = write_data(Path(td) / "d")
+            write_vl(d)
+            activity.apply(b, activity.Dataset(d), "fpga")
+            man = json.loads((b / "manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("activity/activity-odin3-vectorless.json", man["parts"])
+        self.assertIn("activity/activity.json", man["parts"])
+
     def test_tiers_by_hand(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             b = write_bundle(Path(td) / "b")

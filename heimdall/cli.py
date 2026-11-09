@@ -178,19 +178,22 @@ def _activity(args: argparse.Namespace) -> int:
             continue
         tgt = activity.target_of(b)
         dd = data / activity.design_of(slug)
-        if tgt is None or not (dd / "power.json").is_file():
+        if tgt is None or not any((dd / f).is_file() for f in ("power.json", activity.VL_FILE)):
             continue
         try:
             ds = activity.Dataset(dd)
-            if not ds.has(tgt):
-                print(f"{slug}: no {tgt} power in {dd}, skipped")
+            if not ds.sources(tgt):
+                print(f"{slug}: no {tgt} activity in {dd.name}, skipped")
                 continue
             entry = activity.apply(b, ds, tgt)
         except activity.ActivityError as e:
             print(f"heimdall activity: {slug}: {e}", file=sys.stderr)
             return 2
         done += 1
-        print(f"{slug}: {entry['source']} on {len(entry['planes'])} planes")
+        print(
+            f"{slug}: {', '.join(x['key'] for x in entry['sources'])} on "
+            f"{len(entry['planes'])} planes"
+        )
     print(f"{done} pages")
     return 0
 
