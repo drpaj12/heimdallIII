@@ -66,8 +66,8 @@ def write_data(root: Path) -> Path:
     return root
 
 
-def write_vl(root: Path, with_power: bool = True) -> None:
-    """odin3-activity json: x and y named in the bundle (hash names), plus a net it does not have."""
+def write_vl(root: Path) -> None:
+    """odin3-activity json: x and y named in the bundle (hash names), plus one it lacks."""
     js = {
         "schema": "odin3-activity",
         "version": 1,
@@ -82,8 +82,6 @@ def write_vl(root: Path, with_power: bool = True) -> None:
     }
     root.mkdir(parents=True, exist_ok=True)
     (root / "odin3-activity.json").write_text(json.dumps(js), encoding="utf-8")
-    if not with_power:
-        (root / "power.json").unlink(missing_ok=True)
 
 
 class TestActivity(unittest.TestCase):
