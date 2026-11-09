@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from heimdall import __version__, analytics, flows
+from heimdall import __version__, analytics, flows, order
 from heimdall.serve import WEB
 
 PART_BYTES = 40_000_000  # hard limit per file is 50 MB
@@ -140,6 +140,7 @@ def _viewer_page(text: str) -> str:
         text.replace("./vendor/", "../_assets/vendor/")
         .replace("./app.js", "../_assets/app.js")
         .replace('href="help.html"', 'href="../help.html"')
+        .replace("<body>", '<body data-order="../_assets/order.json">')
     )
 
 
@@ -339,6 +340,7 @@ def build_site(
         ),
         encoding="utf-8",
     )
+    order.write_order(out)
     return rows
 
 
@@ -364,6 +366,7 @@ def refresh_site(site: Path, note: str = "") -> int:
     tag = f'<h1>Heimdall III <span style="font-size:.5em;color:#888">{version_label()}</span></h1>'
     text = re.sub(r"<h1>Heimdall III(?: <span[^>]*>v[^<]*</span>)?</h1>", tag, text, count=1)
     idx.write_text(text, encoding="utf-8")
+    order.write_order(site)
     if note:
         text = idx.read_text(encoding="utf-8")
         text = re.sub(r"<p class=\"dim\"><b>Update \d+</b>.*?</p>\n", "", text, flags=re.S)

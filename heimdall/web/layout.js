@@ -14,5 +14,9 @@ export const toggled = (state, name) => (PANELS.includes(name) ? { ...state, [na
 export const panelForKey = (key) => KEYS[key] ?? null;
 // CSS grid columns of #app: left strip or 230px, the main area, right strip or 320px
 export const gridColumns = (state) => `${state.left ? "26px" : "230px"} minmax(0,1fr) ${state.right ? "26px" : "320px"}`;
-export const load = (storage) => parseState(storage?.getItem(KEY));
+// nothing stored: all panels open on a wide screen, all collapsed on a narrow one (a phone)
+export const load = (storage, narrow = false) => {
+  const stored = storage?.getItem(KEY);
+  return stored == null ? Object.fromEntries(PANELS.map((p) => [p, narrow])) : parseState(stored);
+};
 export const save = (storage, state) => storage?.setItem(KEY, JSON.stringify(state));
