@@ -14,6 +14,15 @@ import * as sc from "./selcompare.js";
 import { rainbow, groupColour, lineOwners, groupOwners, newGroups, addGroup, addToCurrent, clearGroups, lineMap, barGradient, bitStripes, pieSlices } from "./rainbow.js";
 import { parseSpan, innermost, hdlCovering, reachDown, cone as coneOf, chainFor, tiers as tiersOf, mixOf, meanMix, mixRGB, mixText, busHue, bitLight } from "./select.js";
 
+// build id: the page and this file come from the same versioned _assets/<id>/ directory; a mismatch
+// means the browser mixed an old cached file with a new page
+window.__o3alive = true;
+(() => {
+  const m = document.querySelector('meta[name="heimdall-build"]');
+  const id = new URL(".", import.meta.url).pathname.split("/").filter(Boolean).pop();
+  if (m && !m.content.startsWith("@@") && m.content !== id && window.__o3stale) window.__o3stale();
+})();
+
 const BUNDLE = "./bundle/";
 const GREY = new THREE.Color("#5b6572");
 const BG = new THREE.Color("#14171c");

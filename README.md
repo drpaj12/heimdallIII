@@ -37,7 +37,7 @@ https://github.com/drpaj12/YggdrasilIII/blob/main/docs/tools.md. Viewing an exis
 `RUN_DIR` is an `odin3-flow --prov --keep-results` run after `odin3-prov-post` and `odin3-prov-steps`.
 Details, controls and screenshots: `docs/user/viz.md`; build a site and package a release: `docs/user/build-site.md`;
 the viewer has its own help page (press `?`) and a worked guide (`guide.html` on a built site).
-Current version: v0.9.3 (`heimdall.__version__`).
+Current version: v0.9.4 (`heimdall.__version__`).
 
 ## The site
 

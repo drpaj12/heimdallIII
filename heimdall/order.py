@@ -140,13 +140,14 @@ def reorder_index(index: str) -> tuple[str, list[str], list[tuple[str, int]]]:
     return text, [r["slug"] for _, r in ordered], tiers
 
 
-def write_order(site: Path) -> list[tuple[str, int]]:
-    """Reorder site/index.html and write site/_assets/order.json (slugs, simplest first)."""
+def write_order(site: Path, aid: str = "") -> list[tuple[str, int]]:
+    """Reorder site/index.html and write site/_assets/<aid>/order.json (slugs, simplest first)."""
     idx = site / "index.html"
     text, slugs, tiers = reorder_index(idx.read_text(encoding="utf-8"))
     idx.write_text(text, encoding="utf-8")
-    (site / "_assets").mkdir(exist_ok=True)
-    (site / "_assets" / "order.json").write_text(
+    assets = site / "_assets" / aid if aid else site / "_assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    (assets / "order.json").write_text(
         json.dumps({"slugs": slugs}, indent=1) + "\n", encoding="utf-8"
     )
     return tiers

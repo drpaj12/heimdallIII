@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 import tempfile
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
 
 from heimdall import export, site, targets
+from heimdall.serve import WEB
 from heimdall.targets import asic
 
 
@@ -96,6 +98,42 @@ class TestPack(unittest.TestCase):
             self.assertFalse((out / "planes" / "lut.json").exists())
 
 
+class TestCacheBust(unittest.TestCase):
+    def test_pages_point_to_existing_versioned_dir(self) -> None:
+        spec = site.Spec("micro", "t", FLOW, (DATA / "src",), "x")
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "site"
+            site.build_site(out, "", [spec])
+            aid = site.asset_id()
+            self.assertEqual([p.name for p in (out / "_assets").iterdir()], [aid])
+            for html_file in [out / "micro-t" / "index.html"]:
+                text = html_file.read_text(encoding="utf-8")
+                srcs = re.findall(r'src="\.\./_assets/([^/"]+)/app\.js"', text)
+                self.assertEqual(srcs, [aid])
+                self.assertTrue((out / "_assets" / srcs[0] / "app.js").is_file())
+            for name in ("help.html", "guide.html"):
+                for ref in re.findall(r'src="_assets/([^/"]+)/', (out / name).read_text()):
+                    self.assertEqual(ref, aid)
+
+    def test_id_follows_content(self) -> None:
+        a = site.asset_id()
+        self.assertEqual(a, site.asset_id())
+        self.assertRegex(a, r"^v\d+\.\d+(\.\d+)?-[0-9a-f]{8}$")
+        app = WEB / "app.js"
+        orig = app.read_bytes()
+        try:
+            app.write_bytes(orig + b"\n// changed\n")
+            self.assertNotEqual(a, site.asset_id())
+        finally:
+            app.write_bytes(orig)
+        self.assertEqual(a, site.asset_id())
+
+    def test_stale_banner_present(self) -> None:
+        text = (WEB / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Old cached files: reload the page", text)
+        self.assertIn("window.__o3alive = true", (WEB / "app.js").read_text(encoding="utf-8"))
+
+
 class TestBuild(unittest.TestCase):
     def test_site(self) -> None:
         spec = site.Spec("micro", "t", FLOW, (DATA / "src",), "a tiny test design")
@@ -108,22 +146,29 @@ class TestBuild(unittest.TestCase):
             self.assertIn("a tiny test design", index)
             self.assertIn("catalogue.html#t", index)
             page = (out / "micro-t" / "index.html").read_text()
-            self.assertIn("../_assets/app.js", page)
-            self.assertIn("../_assets/vendor/three.module.min.js", page)
+            aid = site.asset_id()
+            self.assertIn(f"../_assets/{aid}/app.js", page)
+            self.assertIn(f"../_assets/{aid}/vendor/three.module.min.js", page)
+            self.assertIn(f'content="{aid}"', page)
+            self.assertNotIn("@@BUILD@@", page)
+            self.assertIn(f"../_assets/{aid}/order.json?v=", page)
+            self.assertTrue((out / "_assets" / aid / "order.json").is_file())
             self.assertIn('href="../help.html"', page)
             self.assertFalse((out / "micro-t" / "help.html").exists())
-            self.assertIn('src="_assets/images/o3viz-line.png"', (out / "help.html").read_text())
+            self.assertIn(
+                f'src="_assets/{aid}/images/o3viz-line.png"', (out / "help.html").read_text()
+            )
             self.assertIn('href="guide.html"', index)
             self.assertIn('href="help.html"', index)
             self.assertTrue((out / "guide.html").is_file())
-            self.assertTrue((out / "_assets" / "images" / "guide").is_dir())
-            self.assertFalse((out / "_assets" / "guide.html").exists())
+            self.assertTrue((out / "_assets" / aid / "images" / "guide").is_dir())
+            self.assertFalse((out / "_assets" / aid / "guide.html").exists())
             man = json.loads((out / "micro-t" / "bundle" / "manifest.json").read_text())
             self.assertIn("planes/lut.json", man["parts"])
             self.assertEqual(man["plane_targets"]["lut"], "fpga")
             self.assertEqual(man["plane_targets"]["hdl"], "common")
-            self.assertTrue((out / "_assets" / "app.js").is_file())
-            self.assertFalse((out / "_assets" / "index.html").exists())
+            self.assertTrue((out / "_assets" / aid / "app.js").is_file())
+            self.assertFalse((out / "_assets" / aid / "index.html").exists())
 
     def test_every_link_and_image_resolves(self) -> None:
         specs = [
@@ -163,7 +208,7 @@ class TestBuild(unittest.TestCase):
             '<a class="tryit" href="@a-b/?sel=line:3&amp;rotate=0">x</a> '
             '<a class="tryit" href="@c-d/?z=1">y</a>'
         )
-        out = site.guide_page(tpl, {"a-b"})
+        out = site.guide_page(tpl, {"a-b"}, "v1-abc")
         self.assertIn('href="a-b/?sel=line:3&amp;rotate=0"', out)
         self.assertNotIn("c-d/", out.replace("benchmark c-d is not", ""))
         self.assertIn("benchmark c-d is not in this build", out)
@@ -203,12 +248,15 @@ class TestRefresh(unittest.TestCase):
             )
             n = site.refresh_site(site_dir, '<p class="dim"><b>Update 6</b>: y</p>')
             self.assertEqual(n, 1)
-            self.assertIn("../_assets/app.js", (page / "index.html").read_text(encoding="utf-8"))
+            aid = site.asset_id()
+            self.assertIn(
+                f"../_assets/{aid}/app.js", (page / "index.html").read_text(encoding="utf-8")
+            )
             idx = (site_dir / "index.html").read_text(encoding="utf-8")
             self.assertIn("Update 6", idx)
             self.assertNotIn("Update 5", idx)
-            self.assertTrue((site_dir / "_assets" / "analyticsview.js").is_file())
-            self.assertTrue((site_dir / "_assets" / "selcompare.js").is_file())
+            self.assertTrue((site_dir / "_assets" / aid / "analyticsview.js").is_file())
+            self.assertTrue((site_dir / "_assets" / aid / "selcompare.js").is_file())
             label = site.version_label()
             self.assertIn(label, site.index_html([], "", "https://x/"))
             self.assertRegex(label, r"^v\d+\.\d+")

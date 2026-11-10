@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Heimdall III</title>
+<meta name="heimdall-build" content="@@BUILD@@">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 <style>
@@ -42,6 +43,8 @@
   #zoombtns { position:absolute; right:10px; bottom:12px; display:flex; flex-direction:column; gap:8px; }
   #zoombtns button { width:48px; height:48px; margin:0; font-size:22px; line-height:1; padding:0; background:#2a313bd9; touch-action:manipulation; }
   #zoombtns #zfit { font-size:13px; }
+  #stale { position:fixed; top:0; left:0; right:0; z-index:99; background:#7a2b1f; color:#fff; text-align:center; padding:8px; font-size:14px; }
+  #stale[hidden] { display:none; }
   #ordnav { margin:6px 0; font-size:12px; } #ordnav a { color:#8fc1ff; } .dim { color:var(--dim); }
   .prow { display:flex; align-items:center; gap:6px; margin:2px 0; } .prow b { flex:0 0 60px; color:var(--acc); }
   .prow span { flex:1; } .prow button { width:auto; padding:1px 8px; }
@@ -203,6 +206,17 @@
     <select id="dplane"></select><select id="dkind"><option value="sp">Spearman correlation</option><option value="mi">mutual information (bits)</option></select>
     <button id="dgo">compute matrix</button><div id="dmat"></div></aside>
 </div>
+<div id="stale" hidden>Old cached files: reload the page</div>
+<script>
+(function () {
+  var m = document.querySelector('meta[name="heimdall-build"]');
+  if (!m || m.content.indexOf("@@") === 0) return; // served locally, not a built site
+  window.__o3stale = function () { document.getElementById("stale").hidden = false; };
+  // app.js sets window.__o3alive as soon as it has run; if it never does, say so
+  setTimeout(function () { if (!window.__o3alive) window.__o3stale(); }, 20000);
+  window.addEventListener("error", function (e) { if (e.target && e.target.tagName === "SCRIPT") window.__o3stale(); }, true);
+})();
+</script>
 <script type="module" src="./app.js"></script>
 </body>
 </html>

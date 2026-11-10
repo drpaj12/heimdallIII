@@ -3,7 +3,9 @@
 Layout of DIR:
   index.html              table of the benchmarks
   help.html, guide.html   the one help page and the "How to use" guide (images in _assets/images)
-  _assets/                viewer assets shared by every benchmark (app.js, vendor/, images/, ...)
+  _assets/<id>/           shared viewer assets (app.js, vendor/, images/, order.json);
+                          <id> is `<version>-<hash>`: a changed asset gets a new URL, so a
+                          cache cannot serve an old file with a new page
   <suite>-<design>/       index.html (viewer), bundle/ (manifest.json plus gzip parts)
 
 Every bundle JSON file is gzipped (mtime 0, so rebuilds are byte-identical) and cut into parts
@@ -15,6 +17,7 @@ Links are relative, so the site works from any static host. Standard library onl
 from __future__ import annotations
 
 import gzip
+import hashlib
 import html
 import json
 import re
@@ -135,12 +138,28 @@ def lut_ff_counts(bundle: Path) -> tuple[int, int]:
     return len(types) - ffs, ffs
 
 
-def _viewer_page(text: str) -> str:
+def asset_id() -> str:
+    """Name of the versioned asset directory: `v0.9.4-<8 hex of the content hash>`. The hash covers
+    the path and bytes of every shared asset (the html templates are not assets), so equal content
+    gives the same id and any change gives a new one."""
+    h = hashlib.sha256()
+    for f in sorted(p for p in WEB.rglob("*") if p.is_file() and p.name not in _TEMPLATES):
+        h.update(f.relative_to(WEB).as_posix().encode() + b"\0" + f.read_bytes() + b"\0")
+    return f"{version_label()}-{h.hexdigest()[:8]}"
+
+
+_TEMPLATES = ("index.html", "help.html", "guide.html")
+
+
+def _viewer_page(text: str, aid: str, order_v: str = "") -> str:
+    base = f"../_assets/{aid}/"
+    order = f"{base}order.json" + (f"?v={order_v}" if order_v else "")
     return (
-        text.replace("./vendor/", "../_assets/vendor/")
-        .replace("./app.js", "../_assets/app.js")
+        text.replace("./vendor/", f"{base}vendor/")
+        .replace("./app.js", f"{base}app.js")
         .replace('href="help.html"', 'href="../help.html"')
-        .replace("<body>", '<body data-order="../_assets/order.json">')
+        .replace("<body>", f'<body data-order="{order}">')
+        .replace("@@BUILD@@", aid)
     )
 
 
@@ -150,16 +169,16 @@ def version_label() -> str:
     return f"v{v}"
 
 
-def _root_page(text: str) -> str:
-    """help.html and guide.html live at the site root; their pictures are in _assets/images."""
-    text = text.replace('src="images/', 'src="_assets/images/')
+def _root_page(text: str, aid: str) -> str:
+    """help.html and guide.html live at the site root; their pictures are in _assets/<id>/images."""
+    text = text.replace('src="images/', f'src="_assets/{aid}/images/')
     return text.replace("@@VERSION@@", version_label())
 
 
 _TRY = re.compile(r'<a class="tryit" href="@([^/"]+)/([^"]*)">(.*?)</a>', re.S)
 
 
-def guide_page(text: str, slugs: set[str]) -> str:
+def guide_page(text: str, slugs: set[str], aid: str) -> str:
     """Try-it links are written `@SLUG/?query` in the template; a benchmark that is not in this
     build loses its link (so every link in the built site resolves)."""
 
@@ -170,16 +189,33 @@ def guide_page(text: str, slugs: set[str]) -> str:
         note = f"benchmark {html.escape(slug)} is not in this build"
         return f'<span class="tryit dim">{label} ({note})</span>'
 
-    return _TRY.sub(fix, _root_page(text))
+    return _TRY.sub(fix, _root_page(text, aid))
 
 
-def copy_assets(out: Path) -> None:
+def copy_assets(out: Path) -> str:
+    """Replace `out/_assets` by `out/_assets/<id>/` (the shared assets); returns the id."""
     assets = out / "_assets"
     if assets.exists():
         shutil.rmtree(assets)
-    shutil.copytree(
-        WEB, assets, ignore=shutil.ignore_patterns("index.html", "help.html", "guide.html")
-    )
+    aid = asset_id()
+    shutil.copytree(WEB, assets / aid, ignore=shutil.ignore_patterns(*_TEMPLATES))
+    return aid
+
+
+def order_version(site: Path, aid: str) -> str:
+    """Short hash of order.json (it changes with the rows, not with the assets)."""
+    f = site / "_assets" / aid / "order.json"
+    return hashlib.sha256(f.read_bytes()).hexdigest()[:8] if f.is_file() else ""
+
+
+def write_viewer_pages(site: Path, aid: str) -> int:
+    """(Re)write the viewer page of every benchmark directory of `site`; returns how many."""
+    order_v = order_version(site, aid)
+    viewer = _viewer_page((WEB / "index.html").read_text(encoding="utf-8"), aid, order_v)
+    pages = sorted(p for p in site.iterdir() if (p / "bundle" / "manifest.json").is_file())
+    for p in pages:
+        (p / "index.html").write_text(viewer, encoding="utf-8")
+    return len(pages)
 
 
 def build_one(
@@ -196,9 +232,6 @@ def build_one(
     bench = out / spec.slug
     bench.mkdir(parents=True, exist_ok=True)
     pack_bundle(raw, bench / "bundle")
-    (bench / "index.html").write_text(
-        _viewer_page((WEB / "index.html").read_text(encoding="utf-8")), encoding="utf-8"
-    )
     luts, ffs = lut_ff_counts(raw)
     asic = man.get("asic")
     if asic:
@@ -317,7 +350,7 @@ def build_site(
             raise SiteError(f"{out} exists: --extend needs a new directory")
         shutil.copytree(extend, out, symlinks=False)
     out.mkdir(parents=True, exist_ok=True)
-    copy_assets(out)
+    aid = copy_assets(out)
     rows: list[dict[str, Any]] = []
     bridge = analytics.find_bridge() if analyse else None
     with tempfile.TemporaryDirectory(prefix="heimdall-site-") as tmp:
@@ -330,35 +363,35 @@ def build_site(
     else:
         (out / "index.html").write_text(index_html(rows, base_url, catalogue), encoding="utf-8")
     (out / "help.html").write_text(
-        _root_page((WEB / "help.html").read_text(encoding="utf-8")), encoding="utf-8"
+        _root_page((WEB / "help.html").read_text(encoding="utf-8"), aid), encoding="utf-8"
     )
     (out / "guide.html").write_text(
         guide_page(
             (WEB / "guide.html").read_text(encoding="utf-8"),
             {r["slug"] for r in rows}
             | ({p.name for p in out.iterdir() if (p / "bundle").is_dir()} if extend else set()),
+            aid,
         ),
         encoding="utf-8",
     )
-    order.write_order(out)
+    order.write_order(out, aid)
+    write_viewer_pages(out, aid)  # also the pages copied by --extend: they must use the new id
     return rows
 
 
 def refresh_site(site: Path, note: str = "") -> int:
-    """Bring a built site up to this viewer without re-running any flow: the shared assets, the
+    """Bring a built site up to this viewer without re-running any flow: the shared assets (a new
+    versioned directory), the
     viewer page of every benchmark, help.html and guide.html are rewritten; the bundles and the
     index rows stay.
     `note` replaces the "Update N" paragraph of the index. Returns the number of pages refreshed."""
-    copy_assets(site)
-    viewer = _viewer_page((WEB / "index.html").read_text(encoding="utf-8"))
+    aid = copy_assets(site)
     pages = sorted(p for p in site.iterdir() if (p / "bundle" / "manifest.json").is_file())
-    for p in pages:
-        (p / "index.html").write_text(viewer, encoding="utf-8")
     (site / "help.html").write_text(
-        _root_page((WEB / "help.html").read_text(encoding="utf-8")), encoding="utf-8"
+        _root_page((WEB / "help.html").read_text(encoding="utf-8"), aid), encoding="utf-8"
     )
     (site / "guide.html").write_text(
-        guide_page((WEB / "guide.html").read_text(encoding="utf-8"), {p.name for p in pages}),
+        guide_page((WEB / "guide.html").read_text(encoding="utf-8"), {p.name for p in pages}, aid),
         encoding="utf-8",
     )
     idx = site / "index.html"
@@ -366,7 +399,8 @@ def refresh_site(site: Path, note: str = "") -> int:
     tag = f'<h1>Heimdall III <span style="font-size:.5em;color:#888">{version_label()}</span></h1>'
     text = re.sub(r"<h1>Heimdall III(?: <span[^>]*>v[^<]*</span>)?</h1>", tag, text, count=1)
     idx.write_text(text, encoding="utf-8")
-    order.write_order(site)
+    order.write_order(site, aid)
+    write_viewer_pages(site, aid)
     if note:
         text = idx.read_text(encoding="utf-8")
         text = re.sub(r"<p class=\"dim\"><b>Update \d+</b>.*?</p>\n", "", text, flags=re.S)
