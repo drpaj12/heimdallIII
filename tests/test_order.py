@@ -68,8 +68,8 @@ class TestOrder(unittest.TestCase):
     def test_write_order_json(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "index.html").write_text(site.index_html(ROWS, "", "http://x/cat"))
-            order.write_order(Path(d))
-            slugs = json.loads((Path(d) / "_assets" / "order.json").read_text())["slugs"]
+            order.write_order(Path(d), "v1-abc")
+            slugs = json.loads((Path(d) / "_assets" / "v1-abc" / "order.json").read_text())["slugs"]
         self.assertEqual(slugs[0], "odin3-micro-bm_x")
         self.assertEqual(slugs[-1], "silicon-lonely")
 
