@@ -8,8 +8,14 @@ to the HDL line it came from. It was `o3viz` inside Wyrd III and is now its own 
 
 Purpose: teaching and research view of what HDL becomes at every stage of a flow (provenance at every
 granularity; graph analysis of netlist structure). Two targets by design: the FPGA flow (LUT, cluster, placed
-atoms on the VPR grid) today, and the ASIC flow (Odin III, OpenROAD, GDS, `sky130_fd_sc_hd`) later; the ASIC
-exporter is a stub (`heimdall/targets/asic.py`). Spec: `docs/specs/2026-11-05-heimdall-design.md`.
+atoms on the VPR grid) and the ASIC flow (Odin III, OpenROAD, GDS, `sky130_fd_sc_hd`; planes `stdcell`, `die` and `route`,
+exporter `heimdall/targets/asic.py`; the site has seven `silicon-` pages). Spec: `docs/specs/2026-11-05-heimdall-design.md`.
+
+Heimdall III is part of **Yggdrasil III**, the canopy viewer next to Wyrd III, which forwards `wyrd viz` to it. It reads the run
+directories of Odin III (the trunk, <https://github.com/drpaj12/odin3>) and VPR, and the Mímir III catalogue
+(<https://github.com/drpaj12/mimirIII>) links each design that has a page. The hub is <https://github.com/drpaj12/YggdrasilIII>
+(documentation: <https://drpaj12.github.io/YggdrasilIII/>, this piece: <https://drpaj12.github.io/YggdrasilIII/pieces/heimdall.html>,
+versions of every piece: <https://drpaj12.github.io/YggdrasilIII/versions.html>).
 
 ## Install
 
